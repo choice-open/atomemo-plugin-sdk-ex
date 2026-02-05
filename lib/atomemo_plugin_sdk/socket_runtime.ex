@@ -205,9 +205,10 @@ defmodule AtomemoPluginSdk.SocketRuntime do
     tool_name = Map.fetch!(message, "tool_name")
     %PluginDefinition{} = plugin = Map.fetch!(socket.assigns, :plugin)
     parameters = message["parameters"] || %{}
+    credentials = message["credentials"] || %{}
 
     with {:ok, tool} <- find_tool(plugin.tools, tool_name),
-         {:ok, result} <- call_tool_invoke(tool, parameters) do
+         {:ok, result} <- call_tool_invoke(tool, parameters, credentials) do
       {:ok, result}
     else
       {:error, reason} ->
@@ -226,16 +227,16 @@ defmodule AtomemoPluginSdk.SocketRuntime do
     end
   end
 
-  defp call_tool_invoke(%ToolDefinition{} = tool, parameters) do
+  defp call_tool_invoke(%ToolDefinition{} = tool, parameters, credentials) do
     try do
-      if is_function(tool.invoke, 1) do
-        case tool.invoke.(parameters) do
+      if is_function(tool.invoke, 2) do
+        case tool.invoke.(parameters, credentials) do
           {:ok, result} -> {:ok, result}
           {:error, reason} -> {:error, reason}
           other -> {:error, "Unexpected return value: #{inspect(other)}"}
         end
       else
-        {:error, "Tool '#{tool.name}' has no invoke function"}
+        {:error, "Tool '#{tool.name}' must have invoke function with 2 arguments"}
       end
     rescue
       err ->
