@@ -178,7 +178,7 @@ defmodule AtomemoPluginSdk.SocketRuntime do
   end
 
   defp build_uri(%SocketRuntimeConfig{mode: :debug, ws_url: ws_url, debug_api_key: api_key}) do
-    base = URI.new!(ws_url)
+    base = URI.new!(ws_url) |> URI.merge("/debug_socket/websocket")
 
     if is_binary(api_key) and api_key != "" do
       query = URI.encode_query(%{"api_key" => api_key})
@@ -189,7 +189,7 @@ defmodule AtomemoPluginSdk.SocketRuntime do
   end
 
   defp build_uri(%SocketRuntimeConfig{mode: :release, ws_url: ws_url}) do
-    URI.new!(ws_url)
+    URI.new!(ws_url) |> URI.merge("/release_socket/websocket")
   end
 
   defp topic_for(%PluginDefinition{} = plugin, :debug) do
