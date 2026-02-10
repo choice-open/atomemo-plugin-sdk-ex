@@ -193,4 +193,93 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       end)
     end
   end
+
+  describe "credential_auth_spec" do
+    setup do
+      System.put_env("HUB_MODE", "debug")
+      System.put_env("HUB_DEBUG_API_KEY", "test_api_key")
+      :ok
+    end
+
+    test "handles credential_auth_spec when plugin implements callback and responds with success" do
+      defmodule AuthSpecPluginModule do
+        def definition(organization_id) do
+          PluginDefinition.new(%{
+            organization_id: organization_id,
+            lang: :elixir,
+            name: "auth_spec_plugin",
+            display_name: %{"en_US" => "Auth Spec Plugin"},
+            description: %{"en_US" => "Plugin with auth_spec"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            tools: []
+          })
+        end
+
+        def credential_auth_spec(_credential, extra) do
+          {:ok,
+           %{
+             "adapter" => "openai",
+             "endpoint" => "https://api.openai.com/chat/completions",
+             "headers" => extra["headers"] || %{}
+           }}
+        end
+      end
+
+      client =
+        start_supervised!(
+          {SocketRuntime, [plugin_module: AuthSpecPluginModule, test_mode?: true]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:auth_spec_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:auth_spec_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:auth_spec_plugin", "credential_auth_spec", %{
+        "request_id" => "auth_req_1",
+        "credential" => %{"api_key" => "sk-xxx"},
+        "extra" => %{"model" => "gpt-4"}
+      })
+
+      assert_push(
+        "debug_plugin:auth_spec_plugin",
+        "credential_auth_spec_response",
+        %{
+          "request_id" => "auth_req_1",
+          "adapter" => "openai",
+          "endpoint" => "https://api.openai.com/chat/completions",
+          "headers" => %{}
+        },
+        _
+      )
+    end
+
+    test "handles credential_auth_spec when plugin does not implement callback" do
+      client =
+        start_supervised!({SocketRuntime, [plugin_module: TestPluginModule, test_mode?: true]})
+
+      accept_connect(client)
+      assert_join("debug_plugin:test_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:test_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:test_plugin", "credential_auth_spec", %{
+        "request_id" => "auth_req_2",
+        "credential" => %{},
+        "extra" => %{}
+      })
+
+      assert_push(
+        "debug_plugin:test_plugin",
+        "credential_auth_spec_error",
+        %{"request_id" => "auth_req_2", "error" => "auth_spec not supported"},
+        _
+      )
+    end
+  end
 end

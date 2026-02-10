@@ -122,6 +122,19 @@ defmodule AtomemoPluginSdk.SocketRuntime do
       "[#{inspect(__MODULE__)}] Received message on '#{topic}': #{event} - #{inspect(message)}"
     )
 
+    socket =
+      case event do
+        "credential_auth_spec" ->
+          handle_credential_auth_spec(socket, topic, message)
+
+        "invoke_tool" ->
+          handle_invoke_tool(socket, topic, message)
+      end
+
+    {:ok, socket}
+  end
+
+  defp handle_invoke_tool(socket, topic, message) do
     case invoke_tool(socket, message) do
       {:ok, result} ->
         push(socket, topic, "invoke_tool_response", %{
@@ -136,7 +149,85 @@ defmodule AtomemoPluginSdk.SocketRuntime do
         })
     end
 
-    {:ok, socket}
+    socket
+  end
+
+  defp handle_credential_auth_spec(socket, topic, message) do
+    request_id = message["request_id"]
+    credential_name = message["credential_name"]
+    %PluginDefinition{} = plugin = Map.fetch!(socket.assigns, :plugin)
+
+    result =
+      with true <- is_binary(credential_name) and credential_name != "",
+           %{} = cred_def <- find_credential_definition(plugin.credentials, credential_name),
+           {:ok, spec} <- call_credential_authenticate(cred_def, message) do
+        {:ok, spec}
+      else
+        false ->
+          {:error, "credential_name is required"}
+
+        nil ->
+          {:error, "Credential '#{credential_name}' not found"}
+
+        {:error, _} = err ->
+          err
+      end
+
+    case result do
+      {:ok, spec} ->
+        push(
+          socket,
+          topic,
+          "credential_auth_spec_response",
+          Map.put(spec, "request_id", request_id)
+        )
+
+      {:error, reason} ->
+        push(socket, topic, "credential_auth_spec_error", %{
+          "request_id" => request_id,
+          "error" => to_string(reason)
+        })
+    end
+
+    socket
+  end
+
+  defp find_credential_definition(credentials, credential_name)
+       when is_list(credentials) and is_binary(credential_name) do
+    Enum.find(credentials, fn cred -> cred.name == credential_name end)
+  end
+
+  defp call_credential_authenticate(%{authenticate: nil}, _args) do
+    {:error, "auth_spec not supported"}
+  end
+
+  defp call_credential_authenticate(%{authenticate: fun} = _cred_def, args)
+       when is_function(fun, 1) do
+    try do
+      case fun.(args) do
+        {:ok, spec} when is_map(spec) ->
+          {:ok, spec}
+
+        {:ok, other} ->
+          {:error, "Unexpected return value: #{inspect(other)}"}
+
+        {:error, reason} ->
+          {:error, reason}
+
+        other ->
+          {:error, "Unexpected return value: #{inspect(other)}"}
+      end
+    rescue
+      err ->
+        {:error, "Exception in credential authenticate: #{Exception.message(err)}"}
+    catch
+      kind, reason ->
+        {:error, "Caught #{kind} in credential authenticate: #{inspect(reason)}"}
+    end
+  end
+
+  defp call_credential_authenticate(_cred_def, _args) do
+    {:error, "authenticate must be a function with arity 1"}
   end
 
   defp call_definition(plugin_module, organization_id) do

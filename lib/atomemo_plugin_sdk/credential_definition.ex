@@ -1,6 +1,7 @@
 defmodule AtomemoPluginSdk.CredentialDefinition do
   @moduledoc """
-  凭证定义结构体，用于描述凭证的定义。
+  Credential definition struct, used to describe a credential and how to
+  authenticate with it.
   """
 
   use Ecto.Schema
@@ -8,7 +9,7 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
 
   import Ecto.Changeset
 
-  @derive JSON.Encoder
+  @derive {JSON.Encoder, except: [:authenticate]}
   @primary_key false
   embedded_schema do
     field :type, :string
@@ -16,6 +17,8 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
     field :display_name, AtomemoPluginSdk.I18nEntry
     field :description, AtomemoPluginSdk.I18nEntry
     field :icon, :string
+    # Non-serialized field for performing authentication / building auth_spec
+    field :authenticate, :any, virtual: true
     parameters :parameters
   end
 
@@ -24,12 +27,15 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
           display_name: AtomemoPluginSdk.I18nEntry.t() | nil,
           description: AtomemoPluginSdk.I18nEntry.t() | nil,
           icon: String.t() | nil,
-          parameters: [AtomemoPluginSdk.ParameterDefinition.t()]
+          parameters: [AtomemoPluginSdk.ParameterDefinition.t()],
+          authenticate: authenticate_fun()
         }
+
+  @type authenticate_fun() :: (args :: map() -> {:ok, map()} | {:error, any()})
 
   def changeset(credential, attrs) do
     credential
-    |> cast(attrs, [:name, :display_name, :description, :icon])
+    |> cast(attrs, [:name, :display_name, :description, :icon, :authenticate])
     |> validate_required([:name])
     |> cast_parameters(:parameters)
   end
