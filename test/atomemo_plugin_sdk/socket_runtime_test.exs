@@ -30,7 +30,9 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
                 required: true
               }
             ],
-            invoke: fn params -> {:ok, %{"result" => "Processed: #{params["input"]}"}} end
+            invoke: fn params, _credentials ->
+              {:ok, %{"result" => "Processed: #{params["input"]}"}}
+            end
           }
         ]
       })
@@ -155,7 +157,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
                 description: %{"en_US" => "A tool that errors"},
                 icon: "🔧",
                 parameters: [],
-                invoke: fn _params -> {:error, "Something went wrong"} end
+                invoke: fn _params, _credentials -> {:error, "Something went wrong"} end
               }
             ]
           })
@@ -214,17 +216,21 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
             author: "Test",
             email: "test@example.com",
             version: "1.0.0",
+            credentials: [
+              %{
+                name: "openai",
+                authenticate: fn _args ->
+                  {:ok,
+                   %{
+                     "adapter" => "openai",
+                     "endpoint" => "https://api.openai.com/chat/completions",
+                     "headers" => %{}
+                   }}
+                end
+              }
+            ],
             tools: []
           })
-        end
-
-        def credential_auth_spec(_credential, extra) do
-          {:ok,
-           %{
-             "adapter" => "openai",
-             "endpoint" => "https://api.openai.com/chat/completions",
-             "headers" => extra["headers"] || %{}
-           }}
         end
       end
 
@@ -241,6 +247,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
       push(client, "debug_plugin:auth_spec_plugin", "credential_auth_spec", %{
         "request_id" => "auth_req_1",
+        "credential_name" => "openai",
         "credential" => %{"api_key" => "sk-xxx"},
         "extra" => %{"model" => "gpt-4"}
       })
@@ -259,23 +266,48 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
     end
 
     test "handles credential_auth_spec when plugin does not implement callback" do
+      defmodule NoAuthSpecPluginModule do
+        def definition(organization_id) do
+          PluginDefinition.new(%{
+            organization_id: organization_id,
+            lang: :elixir,
+            name: "no_auth_spec_plugin",
+            display_name: %{"en_US" => "No Auth Spec Plugin"},
+            description: %{"en_US" => "Plugin without auth_spec"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "openai"
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
       client =
-        start_supervised!({SocketRuntime, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!(
+          {SocketRuntime, [plugin_module: NoAuthSpecPluginModule, test_mode?: true]}
+        )
 
       accept_connect(client)
-      assert_join("debug_plugin:test_plugin", %{}, :ok)
+      assert_join("debug_plugin:no_auth_spec_plugin", %{}, :ok)
 
-      assert_push("debug_plugin:test_plugin", "register_plugin", _plugin, ref)
+      assert_push("debug_plugin:no_auth_spec_plugin", "register_plugin", _plugin, ref)
       reply(client, ref, :ok)
 
-      push(client, "debug_plugin:test_plugin", "credential_auth_spec", %{
+      push(client, "debug_plugin:no_auth_spec_plugin", "credential_auth_spec", %{
         "request_id" => "auth_req_2",
+        "credential_name" => "openai",
         "credential" => %{},
         "extra" => %{}
       })
 
       assert_push(
-        "debug_plugin:test_plugin",
+        "debug_plugin:no_auth_spec_plugin",
         "credential_auth_spec_error",
         %{"request_id" => "auth_req_2", "error" => "auth_spec not supported"},
         _

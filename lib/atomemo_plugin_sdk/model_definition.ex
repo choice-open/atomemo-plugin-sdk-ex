@@ -82,9 +82,9 @@ defmodule AtomemoPluginSdk.ModelDefinition do
     validate_format(
       changeset,
       :name,
-      ~r/^[a-zA-Z](?:(?![_-]{2,})[a-zA-Z0-9_\/-]){3,63}[a-zA-Z0-9]$/,
+      ~r/^[a-zA-Z](?:(?![_.-]{2,})[a-zA-Z0-9._\/-])*[a-zA-Z0-9]$/,
       message:
-        "must start with a letter, end with a letter or number, cannot contain consecutive underscores or hyphens, allow '/' in the middle"
+        "must start with a letter, end with a letter or number, cannot contain consecutive underscores, dots or hyphens, allow '.', '_', '/', '-' in the middle"
     )
   end
 end
