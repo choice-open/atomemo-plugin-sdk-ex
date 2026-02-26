@@ -8,6 +8,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion do
   @derive JSON.Encoder
   @primary_key false
   embedded_schema do
+    base_schema()
     field :type, :string, default: "discriminated_union"
     field :discriminator, :string
     field :discriminator_ui, :map
@@ -23,7 +24,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion do
 
   def changeset(changeset, attrs) do
     changeset
-    |> cast(attrs, [:type, :discriminator, :discriminator_ui])
+    |> cast_and_validate_base_fields(attrs)
+    |> cast(attrs, [:discriminator, :discriminator_ui])
     |> validate_required([:discriminator])
     |> cast_parameters(:any_of)
     |> validate_any_of_required()

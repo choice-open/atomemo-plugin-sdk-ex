@@ -347,6 +347,77 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
     end
   end
 
+  describe "object with discriminated properties" do
+    test "can create object parameter with discriminated properties" do
+      attrs = %{
+        parameters: [
+          %{
+            type: "object",
+            name: "test_object_discriminated",
+            display_name: %{"en_US" => "Test Object with Discriminated Properties"},
+            properties: [
+              %{
+                type: "discriminated_union",
+                name: "foo",
+                discriminator: "kind",
+                any_of: [
+                  %{
+                    type: "object",
+                    name: "text_item",
+                    properties: [
+                      %{
+                        type: "string",
+                        name: "kind",
+                        constant: "text"
+                      },
+                      %{
+                        type: "string",
+                        name: "content",
+                        display_name: %{"en_US" => "Content"}
+                      }
+                    ]
+                  },
+                  %{
+                    type: "object",
+                    name: "number_item",
+                    properties: [
+                      %{
+                        type: "string",
+                        name: "kind",
+                        constant: "number"
+                      },
+                      %{
+                        type: "number",
+                        name: "content",
+                        display_name: %{"en_US" => "Content"}
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+
+      changeset = TestContainer.changeset(%TestContainer{}, attrs)
+
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      assert length(container.parameters) == 1
+
+      [%PDObject{} = param] = container.parameters
+      assert param.type == "object"
+      assert param.name == "test_object_discriminated"
+
+      assert [%PDDiscriminatedUnion{discriminator: "kind", name: "foo"}] = param.properties
+
+      [%PDObject{} = obj1, %PDObject{} = obj2] = hd(param.properties).any_of
+      assert obj1.name == "text_item"
+      assert obj2.name == "number_item"
+    end
+  end
+
   describe "parameter name uniqueness validation" do
     test "rejects duplicate parameter names" do
       attrs = %{
