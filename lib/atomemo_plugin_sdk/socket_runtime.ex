@@ -6,7 +6,6 @@ defmodule AtomemoPluginSdk.SocketRuntime do
   - `HUB_WS_URL` - WebSocket URL (required when runtime is used)
   - `HUB_MODE` - `"debug"` | `"release"` (default: `"debug"`)
   - `HUB_DEBUG_API_KEY` - API key for debug mode only
-  - `HUB_ORGANIZATION_ID` - Organization ID (required)
   """
   use Slipstream, restart: :temporary
 
@@ -30,7 +29,7 @@ defmodule AtomemoPluginSdk.SocketRuntime do
     plugin_module = Keyword.fetch!(args, :plugin_module)
 
     with {:ok, config} <- load_config(),
-         {:ok, plugin} <- call_definition(plugin_module, config.organization_id) do
+         {:ok, plugin} <- call_definition(plugin_module) do
       uri = build_uri(config)
 
       case connect(uri: uri, json_parser: JSON) do
@@ -230,8 +229,8 @@ defmodule AtomemoPluginSdk.SocketRuntime do
     {:error, "authenticate must be a function with arity 1"}
   end
 
-  defp call_definition(plugin_module, organization_id) do
-    case plugin_module.definition(organization_id) do
+  defp call_definition(plugin_module) do
+    case plugin_module.definition() do
       {:ok, plugin} -> {:ok, plugin}
       {:error, reason} -> {:error, {:definition_failed, reason}}
     end
@@ -289,7 +288,7 @@ defmodule AtomemoPluginSdk.SocketRuntime do
 
   defp topic_for(%PluginDefinition{} = plugin, :release) do
     # Convention: same as Hub's version_slug for release
-    "release_plugin:#{plugin.organization_id}__#{plugin.name}__release__#{plugin.version}"
+    "release_plugin:#{plugin.name}__release__#{plugin.version}"
   end
 
   defp invoke_tool(socket, message) do

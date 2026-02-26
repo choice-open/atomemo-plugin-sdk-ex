@@ -19,7 +19,6 @@ defmodule AtomemoPluginSdk.PluginDefinition do
   @derive JSON.Encoder
   @primary_key false
   embedded_schema do
-    field :organization_id, :string
     field :lang, Ecto.Enum, values: [:typescript, :elixir]
     field :name, :string
     field :display_name, I18nEntry
@@ -37,7 +36,6 @@ defmodule AtomemoPluginSdk.PluginDefinition do
   end
 
   @type t() :: %__MODULE__{
-          organization_id: String.t(),
           lang: :typescript | :elixir | nil,
           name: String.t(),
           display_name: I18nEntry.t() | nil,
@@ -53,7 +51,6 @@ defmodule AtomemoPluginSdk.PluginDefinition do
   def changeset(plugin, attrs) do
     plugin
     |> cast(attrs, [
-      :organization_id,
       :lang,
       :name,
       :display_name,
@@ -66,7 +63,6 @@ defmodule AtomemoPluginSdk.PluginDefinition do
       :locales
     ])
     |> validate_required([
-      :organization_id,
       :lang,
       :name,
       :display_name,
@@ -90,7 +86,6 @@ defmodule AtomemoPluginSdk.PluginDefinition do
   ## Examples
 
       iex> PluginDefinition.new(%{
-      ...>   organization_id: "my_org",
       ...>   name: "my_plugin",
       ...>   display_name: %{"en_US" => "My Plugin"},
       ...>   description: %{"en_US" => "My awesome plugin"},

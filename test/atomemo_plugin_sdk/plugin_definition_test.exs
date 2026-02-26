@@ -8,7 +8,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
   describe "new/1" do
     test "creates a basic plugin definition successfully" do
       attrs = %{
-        organization_id: "my_org",
         lang: :elixir,
         name: "my_plugin",
         display_name: %{"en_US" => "My Plugin"},
@@ -34,7 +33,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
     test "creates a plugin definition with custom locales" do
       attrs = %{
-        organization_id: "my_org",
         lang: :elixir,
         name: "my_plugin",
         display_name: %{"en_US" => "My Plugin"},
@@ -59,7 +57,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
       refute changeset.valid?
 
       assert %{
-               organization_id: ["can't be blank"],
                lang: ["can't be blank"],
                display_name: ["can't be blank"],
                description: ["can't be blank"],
@@ -72,7 +69,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
     test "returns error when email format is invalid" do
       attrs = %{
-        organization_id: "my_org",
         lang: :elixir,
         name: "my_plugin",
         display_name: %{"en_US" => "My Plugin"},
@@ -90,7 +86,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
     test "returns error when name format is invalid" do
       attrs = %{
-        organization_id: "my_org",
         lang: :elixir,
         name: "__invalid",
         display_name: %{"en_US" => "My Plugin"},
@@ -117,7 +112,6 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
       for valid_name <- valid_names do
         attrs = %{
-          organization_id: "my_org",
           lang: :elixir,
           name: valid_name,
           display_name: %{"en_US" => "My Plugin"},

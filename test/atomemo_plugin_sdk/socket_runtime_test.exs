@@ -5,9 +5,8 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
   alias AtomemoPluginSdk.{PluginDefinition, SocketRuntime}
 
   defmodule TestPluginModule do
-    def definition(organization_id) do
+    def definition do
       PluginDefinition.new(%{
-        organization_id: organization_id,
         lang: :elixir,
         name: "test_plugin",
         display_name: %{"en_US" => "Test Plugin"},
@@ -42,13 +41,11 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
   setup do
     # Set up environment variables
     System.put_env("HUB_WS_URL", "ws://test.example.com/socket")
-    System.put_env("HUB_ORGANIZATION_ID", "test_org")
 
     on_exit(fn ->
       System.delete_env("HUB_WS_URL")
       System.delete_env("HUB_MODE")
       System.delete_env("HUB_DEBUG_API_KEY")
-      System.delete_env("HUB_ORGANIZATION_ID")
     end)
 
     :ok
@@ -75,8 +72,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       assert_push("debug_plugin:test_plugin", "register_plugin", plugin, ref)
 
       # Verify plugin structure (in test mode, Slipstream may pass struct directly)
-      assert %PluginDefinition{name: "test_plugin", organization_id: "test_org", lang: :elixir} =
-               plugin
+      assert %PluginDefinition{name: "test_plugin", lang: :elixir} = plugin
 
       # Reply with success
       reply(client, ref, :ok)
@@ -97,7 +93,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       accept_connect(client)
 
       # Assert client joins the release topic
-      assert_join("release_plugin:test_org__test_plugin__release__1.0.0", %{}, :ok)
+      assert_join("release_plugin:test_plugin__release__1.0.0", %{}, :ok)
     end
   end
 
@@ -139,9 +135,8 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "handles invoke_tool error and responds with error" do
       defmodule ErrorPluginModule do
-        def definition(organization_id) do
+        def definition do
           PluginDefinition.new(%{
-            organization_id: organization_id,
             lang: :elixir,
             name: "error_plugin",
             display_name: %{"en_US" => "Error Plugin"},
@@ -205,9 +200,8 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "handles credential_auth_spec when plugin implements callback and responds with success" do
       defmodule AuthSpecPluginModule do
-        def definition(organization_id) do
+        def definition do
           PluginDefinition.new(%{
-            organization_id: organization_id,
             lang: :elixir,
             name: "auth_spec_plugin",
             display_name: %{"en_US" => "Auth Spec Plugin"},
@@ -267,9 +261,8 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "handles credential_auth_spec when plugin does not implement callback" do
       defmodule NoAuthSpecPluginModule do
-        def definition(organization_id) do
+        def definition do
           PluginDefinition.new(%{
-            organization_id: organization_id,
             lang: :elixir,
             name: "no_auth_spec_plugin",
             display_name: %{"en_US" => "No Auth Spec Plugin"},

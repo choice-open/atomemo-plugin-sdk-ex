@@ -6,7 +6,6 @@ defmodule AtomemoPluginSdk.SocketRuntimeConfig do
   - `HUB_WS_URL` - WebSocket URL (required), must be `ws://` or `wss://`
   - `HUB_MODE` - `"debug"` | `"release"` (default: `"debug"`)
   - `HUB_DEBUG_API_KEY` - Required when mode is debug, non-empty string
-  - `HUB_ORGANIZATION_ID` - Organization ID (required)
   """
   use Ecto.Schema
 
@@ -17,14 +16,12 @@ defmodule AtomemoPluginSdk.SocketRuntimeConfig do
     field :ws_url, :string
     field :mode, Ecto.Enum, values: [:debug, :release]
     field :debug_api_key, :string
-    field :organization_id, :string
   end
 
   @type t() :: %__MODULE__{
           ws_url: String.t(),
           mode: :debug | :release,
-          debug_api_key: String.t() | nil,
-          organization_id: String.t()
+          debug_api_key: String.t() | nil
         }
 
   @ws_schemes ~w(ws wss)
@@ -36,8 +33,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeConfig do
     attrs = %{
       ws_url: System.get_env("HUB_WS_URL"),
       mode: System.get_env("HUB_MODE", "debug"),
-      debug_api_key: System.get_env("HUB_DEBUG_API_KEY"),
-      organization_id: System.get_env("HUB_ORGANIZATION_ID")
+      debug_api_key: System.get_env("HUB_DEBUG_API_KEY")
     }
 
     %__MODULE__{}
@@ -47,8 +43,8 @@ defmodule AtomemoPluginSdk.SocketRuntimeConfig do
 
   def changeset(config, attrs) do
     config
-    |> cast(attrs, [:ws_url, :mode, :debug_api_key, :organization_id])
-    |> validate_required([:ws_url, :mode, :organization_id])
+    |> cast(attrs, [:ws_url, :mode, :debug_api_key])
+    |> validate_required([:ws_url, :mode])
     |> validate_ws_url()
     |> apply_mode_debug_api_key()
   end
