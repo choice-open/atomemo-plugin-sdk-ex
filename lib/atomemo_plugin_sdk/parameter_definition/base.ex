@@ -9,6 +9,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
 
   defmacro base_schema do
     quote do
+      field :decoder, Ecto.Enum, values: [:json]
       field :name, :string
       field :display_name, I18nEntry
       field :required, :boolean, default: false
@@ -30,6 +31,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
   def cast_and_validate_base_fields(changeset, attrs) do
     changeset
     |> cast(attrs, [
+      :decoder,
       :type,
       :name,
       :display_name,
