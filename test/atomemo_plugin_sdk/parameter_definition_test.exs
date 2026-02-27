@@ -51,6 +51,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert length(container.parameters) == 1
 
       [%PDString{} = param] = container.parameters
+      assert param.decoder == nil
       assert param.type == "string"
       assert param.name == "test_param"
       assert param.display_name == %{"en_US" => "Test Parameter"}
@@ -78,6 +79,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert length(container.parameters) == 1
 
       [%PDNumber{} = param] = container.parameters
+      assert param.decoder == nil
       assert param.type == "number"
       assert param.name == "test_number"
       assert param.display_name == %{"en_US" => "Test Number"}
@@ -105,6 +107,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert length(container.parameters) == 1
 
       [%PDNumber{} = param] = container.parameters
+      assert param.decoder == nil
       assert param.type == "integer"
       assert param.name == "test_integer"
       assert param.display_name == %{"en_US" => "Test Integer"}
@@ -132,6 +135,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert length(container.parameters) == 1
 
       [%PDBoolean{} = param] = container.parameters
+      assert param.decoder == nil
       assert param.type == "boolean"
       assert param.name == "test_boolean"
       assert param.display_name == %{"en_US" => "Test Boolean"}
@@ -172,6 +176,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert length(container.parameters) == 1
 
       [%PDObject{} = param] = container.parameters
+      assert param.decoder == nil
       assert param.type == "object"
       assert param.name == "test_object"
       assert param.display_name == %{"en_US" => "Test Object"}
@@ -499,6 +504,37 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       assert error_message =~ "parameter names must be unique"
       assert error_message =~ "duplicate1"
       assert error_message =~ "duplicate2"
+    end
+  end
+
+  describe "parameter with decoder" do
+    test "can create container with decoder" do
+      attrs = %{
+        parameters: [
+          %{
+            decoder: "json",
+            type: "number",
+            name: "test_number",
+            display_name: %{"en_US" => "Test Number"},
+            minimum: 0.0,
+            maximum: 100.0
+          }
+        ]
+      }
+
+      changeset = TestContainer.changeset(%TestContainer{}, attrs)
+
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      assert length(container.parameters) == 1
+
+      [%PDNumber{} = param] = container.parameters
+      assert param.decoder == :json
+      assert param.type == "number"
+      assert param.name == "test_number"
+      assert param.display_name == %{"en_US" => "Test Number"}
+      assert param.minimum == 0.0
+      assert param.maximum == 100.0
     end
   end
 end
