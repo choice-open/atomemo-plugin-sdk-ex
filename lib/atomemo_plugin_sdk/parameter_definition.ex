@@ -15,6 +15,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           | AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion.t()
           | AtomemoPluginSdk.ParameterDefinition.CredentialId.t()
           | AtomemoPluginSdk.ParameterDefinition.EncryptedString.t()
+          | AtomemoPluginSdk.ParameterDefinition.FileRef.t()
 
   defmacro __using__(_opts) do
     quote do
@@ -37,7 +38,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           array: AtomemoPluginSdk.ParameterDefinition.Array,
           discriminated_union: AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion,
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
-          encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString
+          encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
+          file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef
         ]
     end
   end
@@ -56,7 +58,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           array: AtomemoPluginSdk.ParameterDefinition.Array,
           discriminated_union: AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion,
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
-          encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString
+          encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
+          file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef
         ]
     end
   end

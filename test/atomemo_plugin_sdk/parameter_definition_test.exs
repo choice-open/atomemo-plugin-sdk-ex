@@ -13,6 +13,7 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
   alias AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion, as: PDDiscriminatedUnion
   alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
   alias AtomemoPluginSdk.ParameterDefinition.EncryptedString, as: PDEncryptedString
+  alias AtomemoPluginSdk.ParameterDefinition.FileRef, as: PDFileRef
 
   defmodule TestContainer do
     use Ecto.Schema
@@ -29,6 +30,31 @@ defmodule AtomemoPluginSdk.ParameterDefinitionTest do
       container
       |> cast(attrs, [])
       |> cast_parameters(:parameters)
+    end
+  end
+
+  describe "parameters with file_ref type" do
+    test "can create container with file_ref parameter" do
+      attrs = %{
+        parameters: [
+          %{
+            type: "file_ref",
+            name: "input_file",
+            display_name: %{"en_US" => "Input File"}
+          }
+        ]
+      }
+
+      changeset = TestContainer.changeset(%TestContainer{}, attrs)
+
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      assert length(container.parameters) == 1
+
+      [%PDFileRef{} = param] = container.parameters
+      assert param.type == "file_ref"
+      assert param.name == "input_file"
+      assert param.display_name == %{"en_US" => "Input File"}
     end
   end
 
