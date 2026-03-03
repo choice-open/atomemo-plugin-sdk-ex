@@ -488,7 +488,10 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         assert_push(
           "debug_plugin:no_auth_spec_plugin",
           "credential_auth_spec_error",
-          %{"request_id" => "auth_req_2", "error" => %{"message" => "auth_spec not supported"}},
+          %{
+            "request_id" => "auth_req_2",
+            "error" => %{"code" => "sdk:not_supported", "message" => "auth_spec not supported"}
+          },
           _
         )
       end)
@@ -539,11 +542,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
       assert_push(
         "debug_plugin:missing_req_id_plugin",
-        "invoke_tool_error",
+        "credential_auth_spec_error",
         %{
           "request_id" => nil,
-          "error" => %{},
-          "meta" => %{"code" => "invalid_request_id", "message" => "request_id is required"}
+          "error" => %{
+            "code" => "sdk:invalid_request_id",
+            "message" => "request_id is required"
+          }
         },
         _
       )
@@ -594,12 +599,11 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
       assert_push(
         "debug_plugin:missing_cred_name_plugin",
-        "invoke_tool_error",
+        "credential_auth_spec_error",
         %{
           "request_id" => "auth_req_3",
-          "error" => %{},
-          "meta" => %{
-            "code" => "invalid_credential_name",
+          "error" => %{
+            "code" => "sdk:invalid_credential_name",
             "message" => "credential_name is required"
           }
         },
@@ -653,12 +657,11 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
       assert_push(
         "debug_plugin:unknown_cred_plugin",
-        "invoke_tool_error",
+        "credential_auth_spec_error",
         %{
           "request_id" => "auth_req_4",
-          "error" => %{},
-          "meta" => %{
-            "code" => "credential_not_found",
+          "error" => %{
+            "code" => "sdk:credential_not_found",
             "message" => "Credential 'unknown_credential' not found"
           }
         },

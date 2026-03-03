@@ -12,12 +12,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   require Logger
 
   alias AtomemoPluginSdk.{CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
-  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
-
-  defmodule SdkError do
-    defstruct [:code, :message]
-    @type t() :: %__MODULE__{code: String.t(), message: String.t()}
-  end
+  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker, SdkError}
 
   def start_link(opts \\ []) do
     init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])
@@ -114,10 +109,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         end
 
       true ->
-        nil
+        {:ok, socket}
     end
-
-    {:ok, socket}
   end
 
   @impl true
@@ -135,10 +128,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
           handle_invoke_tool(socket, topic, message)
 
         _ ->
-          push_sdk_error(socket, topic, message["request_id"], %SdkError{
-            code: "invalid_event",
-            message: "Invalid event: #{event}"
+          error = SdkError.new(:invalid_event, "Invalid event: #{event}")
+
+          push(socket, topic, "invoke_tool_error", %{
+            "request_id" => message["request_id"],
+            "error" => SdkError.to_map(error)
           })
+
+          socket
       end
 
     {:ok, socket}
@@ -158,9 +155,16 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   @impl true
   def handle_info({event, topic, request_id, error}, socket)
       when event in [:invoke_tool_error, :credential_auth_spec_error] do
+    error_payload =
+      case error do
+        %SdkError{} = err -> SdkError.to_map(err)
+        %{} = map -> map
+        other -> other
+      end
+
     push(socket, topic, to_string(event), %{
       "request_id" => request_id,
-      "error" => error
+      "error" => error_payload
     })
 
     {:noreply, socket}
@@ -189,8 +193,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
       socket
     else
-      {:error, %SdkError{} = sdk_error} ->
-        push_sdk_error(socket, topic, message["request_id"], sdk_error)
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "invoke_tool_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
         socket
     end
   end
@@ -201,38 +209,35 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   defp extract_request_id(message) do
     case message["request_id"] do
-      nil -> {:error, %SdkError{code: "invalid_request_id", message: "request_id is required"}}
-      "" -> {:error, %SdkError{code: "invalid_request_id", message: "request_id is required"}}
+      nil -> {:error, SdkError.new(:invalid_request_id, "request_id is required")}
+      "" -> {:error, SdkError.new(:invalid_request_id, "request_id is required")}
       request_id when is_binary(request_id) -> {:ok, request_id}
-      _ -> {:error, %SdkError{code: "invalid_request_id", message: "request_id must be a string"}}
+      _ -> {:error, SdkError.new(:invalid_request_id, "request_id must be a string")}
     end
   end
 
   defp extract_tool_name(message) do
     case message["tool_name"] do
-      nil -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name is required"}}
-      "" -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name is required"}}
+      nil -> {:error, SdkError.new(:invalid_tool_name, "tool_name is required")}
+      "" -> {:error, SdkError.new(:invalid_tool_name, "tool_name is required")}
       tool_name when is_binary(tool_name) -> {:ok, tool_name}
-      _ -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name must be a string"}}
+      _ -> {:error, SdkError.new(:invalid_tool_name, "tool_name must be a string")}
     end
   end
 
   defp extract_credential_name(message) do
     case message["credential_name"] do
       nil ->
-        {:error,
-         %SdkError{code: "invalid_credential_name", message: "credential_name is required"}}
+        {:error, SdkError.new(:invalid_credential_name, "credential_name is required")}
 
       "" ->
-        {:error,
-         %SdkError{code: "invalid_credential_name", message: "credential_name is required"}}
+        {:error, SdkError.new(:invalid_credential_name, "credential_name is required")}
 
       credential_name when is_binary(credential_name) ->
         {:ok, credential_name}
 
       _ ->
-        {:error,
-         %SdkError{code: "invalid_credential_name", message: "credential_name must be a string"}}
+        {:error, SdkError.new(:invalid_credential_name, "credential_name must be a string")}
     end
   end
 
@@ -244,7 +249,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         {:ok, tool}
 
       {:error, _} ->
-        {:error, %SdkError{code: "tool_not_found", message: "Tool '#{tool_name}' not found"}}
+        {:error, SdkError.new(:tool_not_found, "Tool '#{tool_name}' not found")}
     end
   end
 
@@ -256,20 +261,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         {:ok, cred_def}
 
       nil ->
-        {:error,
-         %SdkError{
-           code: "credential_not_found",
-           message: "Credential '#{credential_name}' not found"
-         }}
+        {:error, SdkError.new(:credential_not_found, "Credential '#{credential_name}' not found")}
     end
-  end
-
-  defp push_sdk_error(socket, topic, request_id, %SdkError{code: code, message: message}) do
-    push(socket, topic, "invoke_tool_error", %{
-      "request_id" => request_id,
-      "error" => %{},
-      "meta" => %{"code" => code, "message" => message}
-    })
   end
 
   defp handle_credential_auth_spec(socket, topic, message) do
@@ -291,8 +284,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
       socket
     else
-      {:error, %SdkError{} = sdk_error} ->
-        push_sdk_error(socket, topic, message["request_id"], sdk_error)
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "credential_auth_spec_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
         socket
     end
   end

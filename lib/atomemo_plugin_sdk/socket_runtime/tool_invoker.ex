@@ -6,6 +6,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
   require Logger
 
   alias AtomemoPluginSdk.ToolDefinition
+  alias AtomemoPluginSdk.SocketRuntime.SdkError
 
   @max_timeout_ms 30 * 60 * 1_000
 
@@ -27,14 +28,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
           "[#{inspect(__MODULE__)}] Tool '#{tool.name}' invocation timed out after #{timeout_ms}ms"
         )
 
-        {:error, %{"message" => "Tool invocation timed out"}}
+        {:error, SdkError.new(:timeout, "Tool '#{tool.name}' invocation timed out")}
 
       {:exit, reason} ->
         Logger.error(
           "[#{inspect(__MODULE__)}] Tool '#{tool.name}' invocation exited: #{inspect(reason)}"
         )
 
-        {:error, %{"message" => "Tool invocation failed"}}
+        {:error, SdkError.new(:crash, "Tool '#{tool.name}' invocation failed")}
     end
   end
 
@@ -63,7 +64,11 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
             tool.invoke.(args.parameters, args.credentials)
 
           true ->
-            {:error, "Tool '#{tool.name}' must have invoke function with 1 or 2 arguments"}
+            {:error,
+             SdkError.new(
+               :invalid_tool_invoke,
+               "Tool '#{tool.name}' must have invoke function with 1 or 2 arguments"
+             )}
         end
 
       case result do
@@ -77,18 +82,26 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
           {:error, %{"message" => message}}
 
         other ->
-          {:error, %{"message" => "Unexpected return value: #{inspect(other)}"}}
+          {:error,
+           SdkError.new(
+             :invalid_return,
+             "Unexpected return value from '#{tool.name}': #{inspect(other)}"
+           )}
       end
     rescue
       err ->
         {:error,
-         %{
-           "message" =>
-             "Exception during tool '#{tool.name}' invocation: #{Exception.message(err)}"
-         }}
+         SdkError.new(
+           :exception,
+           "Exception during tool '#{tool.name}' invocation: #{Exception.message(err)}"
+         )}
     catch
       kind, reason ->
-        {:error, %{"message" => "Caught #{kind} in tool '#{tool.name}': #{inspect(reason)}"}}
+        {:error,
+         SdkError.new(
+           :exception,
+           "Caught #{kind} in tool '#{tool.name}': #{inspect(reason)}"
+         )}
     end
   end
 end
