@@ -61,7 +61,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
     test "successfully connects, joins topic, and registers plugin" do
       client =
-        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: TestPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
 
       # Accept the connection
       accept_connect(client)
@@ -88,7 +95,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
     test "successfully connects and joins topic (join success means claim success)" do
       client =
-        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: TestPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
 
       # Accept the connection
       accept_connect(client)
@@ -107,7 +121,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
     test "handles invoke_tool message and responds with result" do
       client =
-        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: TestPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
 
       accept_connect(client)
       assert_join("debug_plugin:test_plugin", %{}, :ok)
@@ -153,7 +174,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
                 description: %{"en_US" => "A tool that errors"},
                 icon: "🔧",
                 parameters: [],
-                invoke: fn _params, _credentials -> {:error, "Something went wrong"} end
+                invoke: fn _params, _credentials ->
+                  {:error, %{"message" => "Something went wrong"}}
+                end
               }
             ]
           })
@@ -163,7 +186,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       # Capture expected error log to avoid cluttering test output
       ExUnit.CaptureLog.capture_log(fn ->
         client =
-          start_supervised!({HubClient, [plugin_module: ErrorPluginModule, test_mode?: true]})
+          start_supervised!(
+            {HubClient,
+             [
+               plugin_module: ErrorPluginModule,
+               test_mode?: true,
+               task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+             ]}
+          )
 
         accept_connect(client)
         assert_join("debug_plugin:error_plugin", %{}, :ok)
@@ -184,11 +214,153 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
           "invoke_tool_error",
           %{
             "request_id" => "req_456",
-            "error" => "Something went wrong"
+            "error" => %{"message" => "Something went wrong"}
           },
           _
         )
       end)
+    end
+
+    test "handles tool with invoke/1 callback (single argument)" do
+      defmodule SingleArgPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "single_arg_plugin",
+            display_name: %{"en_US" => "Single Arg Plugin"},
+            description: %{"en_US" => "A plugin with single arg invoke"},
+            icon: "🔧",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            tools: [
+              %{
+                name: "single_arg_tool",
+                display_name: %{"en_US" => "Single Arg Tool"},
+                description: %{"en_US" => "Tool with invoke/1"},
+                icon: "🔧",
+                parameters: [],
+                invoke: fn args ->
+                  {:ok,
+                   %{
+                     "params" => args.parameters,
+                     "creds" => args.credentials,
+                     "message" => "Single arg invoke"
+                   }}
+                end
+              }
+            ]
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: SingleArgPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:single_arg_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:single_arg_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:single_arg_plugin", "invoke_tool", %{
+        "request_id" => "req_789",
+        "tool_name" => "single_arg_tool",
+        "parameters" => %{"input" => "test"},
+        "credentials" => %{"api_key" => "secret"}
+      })
+
+      assert_push(
+        "debug_plugin:single_arg_plugin",
+        "invoke_tool_response",
+        %{
+          "request_id" => "req_789",
+          "data" => %{
+            "params" => %{"input" => "test"},
+            "creds" => %{"api_key" => "secret"},
+            "message" => "Single arg invoke"
+          }
+        },
+        _
+      )
+    end
+
+    test "handles tool with invoke/2 callback (two arguments)" do
+      defmodule TwoArgsPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "two_args_plugin",
+            display_name: %{"en_US" => "Two Args Plugin"},
+            description: %{"en_US" => "A plugin with two args invoke"},
+            icon: "🔧",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            tools: [
+              %{
+                name: "two_args_tool",
+                display_name: %{"en_US" => "Two Args Tool"},
+                description: %{"en_US" => "Tool with invoke/2"},
+                icon: "🔧",
+                parameters: [],
+                invoke: fn params, credentials ->
+                  {:ok,
+                   %{
+                     "params" => params,
+                     "creds" => credentials,
+                     "message" => "Two args invoke"
+                   }}
+                end
+              }
+            ]
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: TwoArgsPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:two_args_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:two_args_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:two_args_plugin", "invoke_tool", %{
+        "request_id" => "req_890",
+        "tool_name" => "two_args_tool",
+        "parameters" => %{"input" => "test2"},
+        "credentials" => %{"token" => "bearer123"}
+      })
+
+      assert_push(
+        "debug_plugin:two_args_plugin",
+        "invoke_tool_response",
+        %{
+          "request_id" => "req_890",
+          "data" => %{
+            "params" => %{"input" => "test2"},
+            "creds" => %{"token" => "bearer123"},
+            "message" => "Two args invoke"
+          }
+        },
+        _
+      )
     end
   end
 
@@ -230,7 +402,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       end
 
       client =
-        start_supervised!({HubClient, [plugin_module: AuthSpecPluginModule, test_mode?: true]})
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: AuthSpecPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
 
       accept_connect(client)
       assert_join("debug_plugin:auth_spec_plugin", %{}, :ok)
@@ -281,7 +460,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       end
 
       client =
-        start_supervised!({HubClient, [plugin_module: NoAuthSpecPluginModule, test_mode?: true]})
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: NoAuthSpecPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
 
       accept_connect(client)
       assert_join("debug_plugin:no_auth_spec_plugin", %{}, :ok)

@@ -13,6 +13,7 @@ defmodule AtomemoPluginSdk.ToolDefinition do
     field :display_name, I18nEntry
     field :description, I18nEntry
     field :icon, :string
+    field :timeout, :integer
 
     # 不会被序列化的属性，用于调用工具的函数
     field :invoke, :any, virtual: true
@@ -33,7 +34,7 @@ defmodule AtomemoPluginSdk.ToolDefinition do
 
   def changeset(tool, attrs) do
     tool
-    |> cast(attrs, [:name, :display_name, :description, :icon, :invoke])
+    |> cast(attrs, [:name, :display_name, :description, :icon, :timeout, :invoke])
     |> validate_required([:name])
     |> NameValidator.validate_name()
     |> cast_parameters(:parameters)

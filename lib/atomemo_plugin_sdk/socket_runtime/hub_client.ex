@@ -11,22 +11,25 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   require Logger
 
-  alias AtomemoPluginSdk.{PluginDefinition, SocketRuntimeConfig, ToolDefinition}
+  alias AtomemoPluginSdk.{PluginDefinition, SocketRuntimeConfig}
+  alias AtomemoPluginSdk.SocketRuntime.ToolInvoker
+
+  defmodule SdkError do
+    defstruct [:code, :message]
+    @type t() :: %__MODULE__{code: String.t(), message: String.t()}
+  end
 
   def start_link(opts \\ []) do
-    plugin_module = Keyword.fetch!(opts, :plugin_module)
-    slipstream_opts = Keyword.take(opts, [:test_mode?])
-
-    Slipstream.start_link(
-      __MODULE__,
-      [plugin_module: plugin_module],
-      Keyword.merge([name: __MODULE__], slipstream_opts)
-    )
+    init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])
+    slipstream_opts = Keyword.take(opts, [:name, :test_mode?])
+    Slipstream.start_link(__MODULE__, init_arg, slipstream_opts)
   end
 
   @impl true
   def init(args) do
     plugin_module = Keyword.fetch!(args, :plugin_module)
+    client_name = Keyword.get(args, :name)
+    task_supervisor = Keyword.fetch!(args, :task_supervisor)
 
     with {:ok, config} <- load_config(),
          {:ok, plugin} <- call_definition(plugin_module) do
@@ -36,6 +39,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         {:ok, socket} ->
           socket =
             socket
+            |> assign(:name, client_name)
+            |> assign(:task_supervisor, task_supervisor)
             |> assign(:plugin, plugin)
             |> assign(:mode, config.mode)
 
@@ -134,21 +139,94 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   end
 
   defp handle_invoke_tool(socket, topic, message) do
-    case invoke_tool(socket, message) do
-      {:ok, result} ->
-        push(socket, topic, "invoke_tool_response", %{
-          "request_id" => message["request_id"],
-          "data" => result
-        })
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, tool_name} <- extract_tool_name(message),
+         {:ok, tool} <- find_tool_by_name(socket, tool_name) do
+      parameters = message["parameters"] || %{}
+      credentials = message["credentials"] || %{}
+      task_supervisor = socket.assigns.task_supervisor
+      hub_client = get_hub_client(socket)
 
-      {:error, reason} ->
-        push(socket, topic, "invoke_tool_error", %{
-          "request_id" => message["request_id"],
-          "error" => reason
-        })
+      Task.Supervisor.start_child(task_supervisor, fn ->
+        args = %{request_id: request_id, parameters: parameters, credentials: credentials}
+
+        case ToolInvoker.invoke(tool, args) do
+          {:ok, result} ->
+            send(hub_client, {:invoke_tool_response, topic, request_id, result})
+
+          {:error, error} ->
+            send(hub_client, {:invoke_tool_error, topic, request_id, error})
+        end
+      end)
+
+      socket
+    else
+      {:error, %SdkError{} = sdk_error} ->
+        push_sdk_error(socket, topic, message["request_id"], sdk_error)
+        socket
     end
+  end
 
-    socket
+  defp get_hub_client(socket) do
+    socket.assigns[:name] || self()
+  end
+
+  defp extract_request_id(message) do
+    case message["request_id"] do
+      nil -> {:error, %SdkError{code: "invalid_request_id", message: "request_id is required"}}
+      "" -> {:error, %SdkError{code: "invalid_request_id", message: "request_id is required"}}
+      request_id when is_binary(request_id) -> {:ok, request_id}
+      _ -> {:error, %SdkError{code: "invalid_request_id", message: "request_id must be a string"}}
+    end
+  end
+
+  defp extract_tool_name(message) do
+    case message["tool_name"] do
+      nil -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name is required"}}
+      "" -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name is required"}}
+      tool_name when is_binary(tool_name) -> {:ok, tool_name}
+      _ -> {:error, %SdkError{code: "invalid_tool_name", message: "tool_name must be a string"}}
+    end
+  end
+
+  defp find_tool_by_name(socket, tool_name) do
+    plugin = socket.assigns.plugin
+
+    case find_tool(plugin.tools, tool_name) do
+      {:ok, tool} ->
+        {:ok, tool}
+
+      {:error, _} ->
+        {:error, %SdkError{code: "tool_not_found", message: "Tool '#{tool_name}' not found"}}
+    end
+  end
+
+  defp push_sdk_error(socket, topic, request_id, %SdkError{code: code, message: message}) do
+    push(socket, topic, "invoke_tool_error", %{
+      "request_id" => request_id,
+      "error" => %{},
+      "meta" => %{"code" => code, "message" => message}
+    })
+  end
+
+  @impl true
+  def handle_info({:invoke_tool_response, topic, request_id, result}, socket) do
+    push(socket, topic, "invoke_tool_response", %{
+      "request_id" => request_id,
+      "data" => result
+    })
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:invoke_tool_error, topic, request_id, error}, socket) do
+    push(socket, topic, "invoke_tool_error", %{
+      "request_id" => request_id,
+      "error" => error
+    })
+
+    {:noreply, socket}
   end
 
   defp handle_credential_auth_spec(socket, topic, message) do
@@ -291,49 +369,10 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     "release_plugin:#{plugin.name}__release__#{plugin.version}"
   end
 
-  defp invoke_tool(socket, message) do
-    tool_name = Map.fetch!(message, "tool_name")
-    %PluginDefinition{} = plugin = Map.fetch!(socket.assigns, :plugin)
-    parameters = message["parameters"] || %{}
-    credentials = message["credentials"] || %{}
-
-    with {:ok, tool} <- find_tool(plugin.tools, tool_name),
-         {:ok, result} <- call_tool_invoke(tool, parameters, credentials) do
-      {:ok, result}
-    else
-      {:error, reason} ->
-        Logger.error(
-          "[#{inspect(__MODULE__)}] Failed to invoke tool '#{tool_name}': #{inspect(reason)}"
-        )
-
-        {:error, to_string(reason)}
-    end
-  end
-
   defp find_tool(tools, tool_name) when is_binary(tool_name) do
     case Enum.find(tools, fn tool -> tool.name == tool_name end) do
       nil -> {:error, "Tool '#{tool_name}' not found"}
       tool -> {:ok, tool}
-    end
-  end
-
-  defp call_tool_invoke(%ToolDefinition{} = tool, parameters, credentials) do
-    try do
-      if is_function(tool.invoke, 2) do
-        case tool.invoke.(parameters, credentials) do
-          {:ok, result} -> {:ok, result}
-          {:error, reason} -> {:error, reason}
-          other -> {:error, "Unexpected return value: #{inspect(other)}"}
-        end
-      else
-        {:error, "Tool '#{tool.name}' must have invoke function with 2 arguments"}
-      end
-    rescue
-      err ->
-        {:error, "Exception during tool '#{tool.name}' invocation: #{Exception.message(err)}"}
-    catch
-      kind, reason ->
-        {:error, "Caught #{kind} in tool '#{tool.name}': #{inspect(reason)}"}
     end
   end
 
