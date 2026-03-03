@@ -11,8 +11,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   require Logger
 
-  alias AtomemoPluginSdk.{PluginDefinition, SocketRuntimeConfig}
-  alias AtomemoPluginSdk.SocketRuntime.ToolInvoker
+  alias AtomemoPluginSdk.{CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
+  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
 
   defmodule SdkError do
     defstruct [:code, :message]
@@ -133,9 +133,37 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
         "invoke_tool" ->
           handle_invoke_tool(socket, topic, message)
+
+        _ ->
+          push_sdk_error(socket, topic, message["request_id"], %SdkError{
+            code: "invalid_event",
+            message: "Invalid event: #{event}"
+          })
       end
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({event, topic, request_id, result}, socket)
+      when event in [:invoke_tool_response, :credential_auth_spec_response] do
+    push(socket, topic, to_string(event), %{
+      "request_id" => request_id,
+      "data" => result
+    })
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({event, topic, request_id, error}, socket)
+      when event in [:invoke_tool_error, :credential_auth_spec_error] do
+    push(socket, topic, to_string(event), %{
+      "request_id" => request_id,
+      "error" => error
+    })
+
+    {:noreply, socket}
   end
 
   defp handle_invoke_tool(socket, topic, message) do
@@ -189,6 +217,25 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     end
   end
 
+  defp extract_credential_name(message) do
+    case message["credential_name"] do
+      nil ->
+        {:error,
+         %SdkError{code: "invalid_credential_name", message: "credential_name is required"}}
+
+      "" ->
+        {:error,
+         %SdkError{code: "invalid_credential_name", message: "credential_name is required"}}
+
+      credential_name when is_binary(credential_name) ->
+        {:ok, credential_name}
+
+      _ ->
+        {:error,
+         %SdkError{code: "invalid_credential_name", message: "credential_name must be a string"}}
+    end
+  end
+
   defp find_tool_by_name(socket, tool_name) do
     plugin = socket.assigns.plugin
 
@@ -201,6 +248,22 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     end
   end
 
+  defp find_credential_for_auth(socket, credential_name) do
+    plugin = socket.assigns.plugin
+
+    case find_credential_definition(plugin.credentials, credential_name) do
+      %CredentialDefinition{} = cred_def ->
+        {:ok, cred_def}
+
+      nil ->
+        {:error,
+         %SdkError{
+           code: "credential_not_found",
+           message: "Credential '#{credential_name}' not found"
+         }}
+    end
+  end
+
   defp push_sdk_error(socket, topic, request_id, %SdkError{code: code, message: message}) do
     push(socket, topic, "invoke_tool_error", %{
       "request_id" => request_id,
@@ -209,102 +272,34 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     })
   end
 
-  @impl true
-  def handle_info({:invoke_tool_response, topic, request_id, result}, socket) do
-    push(socket, topic, "invoke_tool_response", %{
-      "request_id" => request_id,
-      "data" => result
-    })
-
-    {:noreply, socket}
-  end
-
-  @impl true
-  def handle_info({:invoke_tool_error, topic, request_id, error}, socket) do
-    push(socket, topic, "invoke_tool_error", %{
-      "request_id" => request_id,
-      "error" => error
-    })
-
-    {:noreply, socket}
-  end
-
   defp handle_credential_auth_spec(socket, topic, message) do
-    request_id = message["request_id"]
-    credential_name = message["credential_name"]
-    %PluginDefinition{} = plugin = Map.fetch!(socket.assigns, :plugin)
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, credential_name} <- extract_credential_name(message),
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+      task_supervisor = socket.assigns.task_supervisor
+      hub_client = get_hub_client(socket)
 
-    result =
-      with true <- is_binary(credential_name) and credential_name != "",
-           %{} = cred_def <- find_credential_definition(plugin.credentials, credential_name),
-           {:ok, spec} <- call_credential_authenticate(cred_def, message) do
-        {:ok, spec}
-      else
-        false ->
-          {:error, "credential_name is required"}
+      Task.Supervisor.start_child(task_supervisor, fn ->
+        case CredentialInvoker.authenticate(cred_def, message) do
+          {:ok, spec} ->
+            send(hub_client, {:credential_auth_spec_response, topic, request_id, spec})
 
-        nil ->
-          {:error, "Credential '#{credential_name}' not found"}
+          {:error, error} ->
+            send(hub_client, {:credential_auth_spec_error, topic, request_id, error})
+        end
+      end)
 
-        {:error, _} = err ->
-          err
-      end
-
-    case result do
-      {:ok, spec} ->
-        push(
-          socket,
-          topic,
-          "credential_auth_spec_response",
-          Map.put(spec, "request_id", request_id)
-        )
-
-      {:error, reason} ->
-        push(socket, topic, "credential_auth_spec_error", %{
-          "request_id" => request_id,
-          "error" => to_string(reason)
-        })
+      socket
+    else
+      {:error, %SdkError{} = sdk_error} ->
+        push_sdk_error(socket, topic, message["request_id"], sdk_error)
+        socket
     end
-
-    socket
   end
 
   defp find_credential_definition(credentials, credential_name)
        when is_list(credentials) and is_binary(credential_name) do
     Enum.find(credentials, fn cred -> cred.name == credential_name end)
-  end
-
-  defp call_credential_authenticate(%{authenticate: nil}, _args) do
-    {:error, "auth_spec not supported"}
-  end
-
-  defp call_credential_authenticate(%{authenticate: fun} = _cred_def, args)
-       when is_function(fun, 1) do
-    try do
-      case fun.(args) do
-        {:ok, spec} when is_map(spec) ->
-          {:ok, spec}
-
-        {:ok, other} ->
-          {:error, "Unexpected return value: #{inspect(other)}"}
-
-        {:error, reason} ->
-          {:error, reason}
-
-        other ->
-          {:error, "Unexpected return value: #{inspect(other)}"}
-      end
-    rescue
-      err ->
-        {:error, "Exception in credential authenticate: #{Exception.message(err)}"}
-    catch
-      kind, reason ->
-        {:error, "Caught #{kind} in credential authenticate: #{inspect(reason)}"}
-    end
-  end
-
-  defp call_credential_authenticate(_cred_def, _args) do
-    {:error, "authenticate must be a function with arity 1"}
   end
 
   defp call_definition(plugin_module) do

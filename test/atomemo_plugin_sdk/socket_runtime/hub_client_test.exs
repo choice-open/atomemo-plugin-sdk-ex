@@ -429,9 +429,11 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         "credential_auth_spec_response",
         %{
           "request_id" => "auth_req_1",
-          "adapter" => "openai",
-          "endpoint" => "https://api.openai.com/chat/completions",
-          "headers" => %{}
+          "data" => %{
+            "adapter" => "openai",
+            "endpoint" => "https://api.openai.com/chat/completions",
+            "headers" => %{}
+          }
         },
         _
       )
@@ -459,35 +461,263 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         end
       end
 
+      ExUnit.CaptureLog.capture_log(fn ->
+        client =
+          start_supervised!(
+            {HubClient,
+             [
+               plugin_module: NoAuthSpecPluginModule,
+               test_mode?: true,
+               task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+             ]}
+          )
+
+        accept_connect(client)
+        assert_join("debug_plugin:no_auth_spec_plugin", %{}, :ok)
+
+        assert_push("debug_plugin:no_auth_spec_plugin", "register_plugin", _plugin, ref)
+        reply(client, ref, :ok)
+
+        push(client, "debug_plugin:no_auth_spec_plugin", "credential_auth_spec", %{
+          "request_id" => "auth_req_2",
+          "credential_name" => "openai",
+          "credential" => %{},
+          "extra" => %{}
+        })
+
+        assert_push(
+          "debug_plugin:no_auth_spec_plugin",
+          "credential_auth_spec_error",
+          %{"request_id" => "auth_req_2", "error" => %{"message" => "auth_spec not supported"}},
+          _
+        )
+      end)
+    end
+
+    test "handles credential_auth_spec with missing request_id" do
+      defmodule MissingReqIdPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "missing_req_id_plugin",
+            display_name: %{"en_US" => "Test Plugin"},
+            description: %{"en_US" => "Test"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "test_cred",
+                authenticate: fn _args -> {:ok, %{}} end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
       client =
         start_supervised!(
           {HubClient,
            [
-             plugin_module: NoAuthSpecPluginModule,
+             plugin_module: MissingReqIdPluginModule,
              test_mode?: true,
              task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
            ]}
         )
 
       accept_connect(client)
-      assert_join("debug_plugin:no_auth_spec_plugin", %{}, :ok)
+      assert_join("debug_plugin:missing_req_id_plugin", %{}, :ok)
 
-      assert_push("debug_plugin:no_auth_spec_plugin", "register_plugin", _plugin, ref)
+      assert_push("debug_plugin:missing_req_id_plugin", "register_plugin", _plugin, ref)
       reply(client, ref, :ok)
 
-      push(client, "debug_plugin:no_auth_spec_plugin", "credential_auth_spec", %{
-        "request_id" => "auth_req_2",
-        "credential_name" => "openai",
-        "credential" => %{},
-        "extra" => %{}
+      push(client, "debug_plugin:missing_req_id_plugin", "credential_auth_spec", %{
+        "credential_name" => "test_cred"
       })
 
       assert_push(
-        "debug_plugin:no_auth_spec_plugin",
-        "credential_auth_spec_error",
-        %{"request_id" => "auth_req_2", "error" => "auth_spec not supported"},
+        "debug_plugin:missing_req_id_plugin",
+        "invoke_tool_error",
+        %{
+          "request_id" => nil,
+          "error" => %{},
+          "meta" => %{"code" => "invalid_request_id", "message" => "request_id is required"}
+        },
         _
       )
+    end
+
+    test "handles credential_auth_spec with missing credential_name" do
+      defmodule MissingCredNamePluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "missing_cred_name_plugin",
+            display_name: %{"en_US" => "Test Plugin"},
+            description: %{"en_US" => "Test"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "test_cred",
+                authenticate: fn _args -> {:ok, %{}} end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: MissingCredNamePluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:missing_cred_name_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:missing_cred_name_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:missing_cred_name_plugin", "credential_auth_spec", %{
+        "request_id" => "auth_req_3"
+      })
+
+      assert_push(
+        "debug_plugin:missing_cred_name_plugin",
+        "invoke_tool_error",
+        %{
+          "request_id" => "auth_req_3",
+          "error" => %{},
+          "meta" => %{
+            "code" => "invalid_credential_name",
+            "message" => "credential_name is required"
+          }
+        },
+        _
+      )
+    end
+
+    test "handles credential_auth_spec with unknown credential" do
+      defmodule UnknownCredPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "unknown_cred_plugin",
+            display_name: %{"en_US" => "Test Plugin"},
+            description: %{"en_US" => "Test"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "existing_cred",
+                authenticate: fn _args -> {:ok, %{}} end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: UnknownCredPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:unknown_cred_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:unknown_cred_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:unknown_cred_plugin", "credential_auth_spec", %{
+        "request_id" => "auth_req_4",
+        "credential_name" => "unknown_credential"
+      })
+
+      assert_push(
+        "debug_plugin:unknown_cred_plugin",
+        "invoke_tool_error",
+        %{
+          "request_id" => "auth_req_4",
+          "error" => %{},
+          "meta" => %{
+            "code" => "credential_not_found",
+            "message" => "Credential 'unknown_credential' not found"
+          }
+        },
+        _
+      )
+    end
+
+    test "handles credential_auth_spec when authenticate callback throws error" do
+      defmodule ErrorAuthPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "error_auth_plugin",
+            display_name: %{"en_US" => "Error Auth Plugin"},
+            description: %{"en_US" => "Plugin with error auth"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "error_cred",
+                authenticate: fn _args -> {:error, "Authentication failed"} end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        client =
+          start_supervised!(
+            {HubClient,
+             [
+               plugin_module: ErrorAuthPluginModule,
+               test_mode?: true,
+               task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+             ]}
+          )
+
+        accept_connect(client)
+        assert_join("debug_plugin:error_auth_plugin", %{}, :ok)
+
+        assert_push("debug_plugin:error_auth_plugin", "register_plugin", _plugin, ref)
+        reply(client, ref, :ok)
+
+        push(client, "debug_plugin:error_auth_plugin", "credential_auth_spec", %{
+          "request_id" => "auth_req_5",
+          "credential_name" => "error_cred"
+        })
+
+        assert_push(
+          "debug_plugin:error_auth_plugin",
+          "credential_auth_spec_error",
+          %{"request_id" => "auth_req_5", "error" => %{"message" => "Authentication failed"}},
+          _
+        )
+      end)
     end
   end
 end
