@@ -1,4 +1,4 @@
-defmodule AtomemoPluginSdk.SocketRuntime do
+defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   @moduledoc """
   Unified runtime for plugin Hub connection in both debug and release mode.
 

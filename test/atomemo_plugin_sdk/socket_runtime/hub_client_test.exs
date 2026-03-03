@@ -1,8 +1,9 @@
-defmodule AtomemoPluginSdk.SocketRuntimeTest do
+defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
   use ExUnit.Case
   use Slipstream.SocketTest
 
-  alias AtomemoPluginSdk.{PluginDefinition, SocketRuntime}
+  alias AtomemoPluginSdk.PluginDefinition
+  alias AtomemoPluginSdk.SocketRuntime.HubClient
 
   defmodule TestPluginModule do
     def definition do
@@ -60,7 +61,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "successfully connects, joins topic, and registers plugin" do
       client =
-        start_supervised!({SocketRuntime, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
 
       # Accept the connection
       accept_connect(client)
@@ -87,7 +88,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "successfully connects and joins topic (join success means claim success)" do
       client =
-        start_supervised!({SocketRuntime, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
 
       # Accept the connection
       accept_connect(client)
@@ -106,7 +107,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
 
     test "handles invoke_tool message and responds with result" do
       client =
-        start_supervised!({SocketRuntime, [plugin_module: TestPluginModule, test_mode?: true]})
+        start_supervised!({HubClient, [plugin_module: TestPluginModule, test_mode?: true]})
 
       accept_connect(client)
       assert_join("debug_plugin:test_plugin", %{}, :ok)
@@ -162,7 +163,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       # Capture expected error log to avoid cluttering test output
       ExUnit.CaptureLog.capture_log(fn ->
         client =
-          start_supervised!({SocketRuntime, [plugin_module: ErrorPluginModule, test_mode?: true]})
+          start_supervised!({HubClient, [plugin_module: ErrorPluginModule, test_mode?: true]})
 
         accept_connect(client)
         assert_join("debug_plugin:error_plugin", %{}, :ok)
@@ -229,9 +230,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       end
 
       client =
-        start_supervised!(
-          {SocketRuntime, [plugin_module: AuthSpecPluginModule, test_mode?: true]}
-        )
+        start_supervised!({HubClient, [plugin_module: AuthSpecPluginModule, test_mode?: true]})
 
       accept_connect(client)
       assert_join("debug_plugin:auth_spec_plugin", %{}, :ok)
@@ -282,9 +281,7 @@ defmodule AtomemoPluginSdk.SocketRuntimeTest do
       end
 
       client =
-        start_supervised!(
-          {SocketRuntime, [plugin_module: NoAuthSpecPluginModule, test_mode?: true]}
-        )
+        start_supervised!({HubClient, [plugin_module: NoAuthSpecPluginModule, test_mode?: true]})
 
       accept_connect(client)
       assert_join("debug_plugin:no_auth_spec_plugin", %{}, :ok)

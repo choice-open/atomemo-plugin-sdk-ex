@@ -148,4 +148,3 @@ defmodule AtomemoPluginSdk.FileRefTest do
     end
   end
 end
-
