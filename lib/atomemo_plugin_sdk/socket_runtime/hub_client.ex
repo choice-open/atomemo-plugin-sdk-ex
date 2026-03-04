@@ -38,6 +38,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
             |> assign(:task_supervisor, task_supervisor)
             |> assign(:plugin, plugin)
             |> assign(:mode, config.mode)
+            |> assign(:pending_hub_calls, %{})
 
           {:ok, socket}
 
@@ -77,7 +78,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
       case mode do
         :debug ->
           {:ok, ref} = push(socket, topic, "register_plugin", plugin)
-          assign(socket, :claim_request, ref)
+          assign(socket, :register_plugin_ref, ref)
 
         :release ->
           # In release mode, join success means claim success (Hub validates in join callback)
@@ -89,27 +90,58 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   @impl true
   def handle_reply(ref, message, socket) do
-    cond do
-      ref == socket.assigns[:claim_request] ->
-        Logger.info("message: #{inspect(message)}")
+    if ref == socket.assigns[:register_plugin_ref] do
+      socket = assign(socket, :register_plugin_ref, nil)
 
-        case message do
+      case message do
+        :ok ->
+          Logger.info("[#{inspect(__MODULE__)}] Register plugin successfully")
+          {:ok, socket}
+
+        {:ok, _} ->
+          Logger.info("[#{inspect(__MODULE__)}] Register plugin successfully")
+          {:ok, socket}
+
+        {:error, err} ->
+          reason = if is_map(err), do: err["reason"] || inspect(err), else: inspect(err)
+          Logger.error("[#{inspect(__MODULE__)}] Failed to register plugin: #{inspect(err)}")
+          {:stop, reason, socket}
+      end
+    else
+      {:ok, socket}
+    end
+  end
+
+  defp handle_hub_call_push_response(socket, message, status) do
+    request_id = message["request_id"]
+    topic = current_topic(socket)
+
+    case Map.pop(socket.assigns.pending_hub_calls, request_id) do
+      {nil, _} ->
+        Logger.warning(
+          "[#{inspect(__MODULE__)}] Received hub_call response for unknown request_id=#{request_id} topic=#{topic}"
+        )
+
+        socket
+
+      {{:hub_call, from}, pending} ->
+        case status do
           :ok ->
-            Logger.info("[#{inspect(__MODULE__)}] Claim/register successfully")
-            {:ok, socket}
+            Logger.info(
+              "[#{inspect(__MODULE__)}] Dispatching hub_call response topic=#{topic} request_id=#{request_id}"
+            )
 
-          {:ok, _} ->
-            Logger.info("[#{inspect(__MODULE__)}] Claim/register successfully")
-            {:ok, socket}
+            send(from, {:hub_call_response, request_id, message["data"]})
 
-          {:error, err} ->
-            reason = if is_map(err), do: err["reason"] || inspect(err), else: inspect(err)
-            Logger.error("[#{inspect(__MODULE__)}] Failed to claim/register: #{inspect(err)}")
-            {:stop, reason, socket}
+          :error ->
+            Logger.info(
+              "[#{inspect(__MODULE__)}] Dispatching hub_call error topic=#{topic} request_id=#{request_id}"
+            )
+
+            send(from, {:hub_call_error, request_id, message["error"]})
         end
 
-      true ->
-        {:ok, socket}
+        assign(socket, :pending_hub_calls, pending)
     end
   end
 
@@ -126,6 +158,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
         "invoke_tool" ->
           handle_invoke_tool(socket, topic, message)
+
+        "hub_call_response" ->
+          handle_hub_call_push_response(socket, message, :ok)
+
+        "hub_call_error" ->
+          handle_hub_call_push_response(socket, message, :error)
 
         _ ->
           error = SdkError.new(:invalid_event, "Invalid event: #{event}")
@@ -170,6 +208,32 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     {:noreply, socket}
   end
 
+  @impl true
+  def handle_info({:hub_call, event, request_id, payload, from}, socket) do
+    topic = current_topic(socket)
+
+    Logger.info(
+      "[#{inspect(__MODULE__)}] Sending hub_call topic=#{topic} event=#{event} request_id=#{request_id} payload=#{inspect(payload)}"
+    )
+
+    push(socket, topic, "hub_call:#{event}", %{"request_id" => request_id, "data" => payload})
+
+    pending = Map.put(socket.assigns.pending_hub_calls, request_id, {:hub_call, from})
+    {:noreply, assign(socket, :pending_hub_calls, pending)}
+  end
+
+  @impl true
+  def handle_info({:hub_call_cancel, request_id}, socket) do
+    topic = current_topic(socket)
+
+    Logger.info(
+      "[#{inspect(__MODULE__)}] Cancelling hub_call topic=#{topic} request_id=#{request_id}"
+    )
+
+    pending = Map.delete(socket.assigns.pending_hub_calls, request_id)
+    {:noreply, assign(socket, :pending_hub_calls, pending)}
+  end
+
   defp handle_invoke_tool(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, tool_name} <- extract_tool_name(message),
@@ -180,7 +244,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
       hub_client = get_hub_client(socket)
 
       Task.Supervisor.start_child(task_supervisor, fn ->
-        args = %{request_id: request_id, parameters: parameters, credentials: credentials}
+        args = %{
+          request_id: request_id,
+          parameters: parameters,
+          credentials: credentials,
+          hub_client: hub_client
+        }
 
         case ToolInvoker.invoke(tool, args) do
           {:ok, result} ->
@@ -359,6 +428,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp topic_for(%PluginDefinition{} = plugin, :release) do
     # Convention: same as Hub's version_slug for release
     "release_plugin:#{plugin.name}__release__#{plugin.version}"
+  end
+
+  defp current_topic(socket) do
+    plugin = socket.assigns.plugin
+    mode = socket.assigns.mode
+    topic_for(plugin, mode)
   end
 
   defp find_tool(tools, tool_name) when is_binary(tool_name) do
