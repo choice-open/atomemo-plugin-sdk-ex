@@ -28,7 +28,8 @@ defmodule AtomemoPluginSdk.MixProject do
     [
       {:ecto, "~> 3.10"},
       {:polymorphic_embed, "~> 5.0"},
-      {:slipstream, "~> 1.2"}
+      {:slipstream, "~> 1.2"},
+      {:req, "~> 0.5"}
     ]
   end
 end
