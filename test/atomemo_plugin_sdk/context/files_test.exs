@@ -4,9 +4,10 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.Context.Files
   alias AtomemoPluginSdk.FileRef
+  alias AtomemoPluginSdk.SocketRuntime.SdkError
 
-  describe "download_url/3" do
-    test "returns url data for oss source" do
+  describe "attach_download_url/3" do
+    test "returns file_ref with remote_url for oss source" do
       parent = self()
 
       hub_client =
@@ -25,17 +26,21 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
       context = %Context{__hub_client__: hub_client, organization_id: ""}
       file_ref = %FileRef{source: :oss, res_key: "path/to/file.pdf"}
 
-      assert {:ok, "https://cdn.example.com/file.pdf"} =
-               Files.download_url(context, file_ref)
+      assert {:ok, %FileRef{} = result} =
+               Files.attach_download_url(context, file_ref)
+
+      assert result.remote_url == "https://cdn.example.com/file.pdf"
+      assert result.res_key == "path/to/file.pdf"
 
       assert_receive {:hub_called_with, "path/to/file.pdf"}
     end
 
-    test "returns invalid_file_source for mem source" do
+    test "returns sdk invalid_operation error for mem source" do
       context = %Context{__hub_client__: self(), organization_id: ""}
       file_ref = %FileRef{source: :mem}
 
-      assert {:error, :invalid_file_source} = Files.download_url(context, file_ref)
+      assert {:error, %SdkError{code: :invalid_operation}} =
+               Files.attach_download_url(context, file_ref)
     end
 
     test "propagates hub error for oss source" do
@@ -54,7 +59,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
       file_ref = %FileRef{source: :oss, res_key: "private/file.pdf"}
 
       assert {:error, {:hub_error, "forbidden", "no access"}} =
-               Files.download_url(context, file_ref)
+               Files.attach_download_url(context, file_ref)
     end
   end
 
@@ -356,7 +361,10 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
       requester = fn _url, _content, _opts -> :ok end
 
       assert {:ok, %FileRef{source: :oss}} =
-               Files.upload(context, file_ref, requester: requester, key_prefix: "plugins/avatar/")
+               Files.upload(context, file_ref,
+                 requester: requester,
+                 key_prefix: "plugins/avatar/"
+               )
     end
   end
 end

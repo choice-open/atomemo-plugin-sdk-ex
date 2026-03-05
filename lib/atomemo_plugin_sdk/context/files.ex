@@ -1,9 +1,15 @@
 defmodule AtomemoPluginSdk.Context.Files do
+  @moduledoc """
+  `Context` 里的文件操作入口，围绕 `FileRef` 提供统一的上传、下载与 URL 附加能力。
+
+  该模块的核心目标是让插件作者只处理 `FileRef`，不直接关心底层对象存储细节：
+  """
+
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.SocketRuntime.{HubCaller, SdkError}
 
-  @type operation_error :: :invalid_file_source | SdkError.t() | HubCaller.error()
+  @type operation_error :: SdkError.t() | HubCaller.error()
 
   @doc """
   Downloads a file from OSS to memory.
@@ -24,7 +30,7 @@ defmodule AtomemoPluginSdk.Context.Files do
   def download(%Context{} = context, %FileRef{source: :oss} = file_ref, opts) do
     requester = Keyword.get(opts, :requester, &do_download/2)
 
-    with {:ok, url} <- download_url(context, file_ref),
+    with {:ok, %FileRef{remote_url: url}} <- attach_download_url(context, file_ref),
          {:ok, response} <- requester.(url, opts) do
       updated_file_ref =
         %{file_ref | source: :mem, content: response.body, size: byte_size(response.body)}
@@ -120,31 +126,35 @@ defmodule AtomemoPluginSdk.Context.Files do
   end
 
   @doc """
-  Gets a pre-signed URL for an OSS file by its resource key.
+  Attach a pre-signed URL to oss FileRef.
 
   ## Options
 
     * `:expires_in` - Request timeout in seconds (default: 3600)
   """
-  @spec download_url(Context.t(), FileRef.t()) ::
-          {:ok, String.t()} | {:error, operation_error()}
-  @spec download_url(Context.t(), FileRef.t(), keyword()) ::
-          {:ok, String.t()} | {:error, operation_error()}
-  def download_url(context, file_ref, opts \\ [])
+  @spec attach_download_url(Context.t(), FileRef.t()) ::
+          {:ok, FileRef.t()} | {:error, operation_error()}
+  @spec attach_download_url(Context.t(), FileRef.t(), keyword()) ::
+          {:ok, FileRef.t()} | {:error, operation_error()}
+  def attach_download_url(context, file_ref, opts \\ [])
 
-  def download_url(
+  def attach_download_url(
         %Context{__hub_client__: hub_client},
-        %FileRef{source: :oss, res_key: res_key},
+        %FileRef{source: :oss, res_key: res_key} = file_ref,
         opts
       ) do
     case HubCaller.call(hub_client, "get_file_url", %{"res_key" => res_key}, opts) do
-      {:ok, %{"url" => url}} -> {:ok, url}
+      {:ok, %{"url" => url}} -> {:ok, %{file_ref | remote_url: url}}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  def download_url(_context, %FileRef{source: :mem}, _opts) do
-    {:error, :invalid_file_source}
+  def attach_download_url(_context, %FileRef{source: :mem}, _opts) do
+    {:error,
+     SdkError.new(
+       :invalid_operation,
+       "Cannot attach download URL to a file that is already in memory"
+     )}
   end
 
   defp do_download(url, opts) do
