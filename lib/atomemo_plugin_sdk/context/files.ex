@@ -66,6 +66,60 @@ defmodule AtomemoPluginSdk.Context.Files do
   defp set_extname_if_needed(file_ref), do: file_ref
 
   @doc """
+  Uploads a file from memory to OSS.
+
+  ## Options
+
+    * `:receive_timeout` - Upload timeout in milliseconds (default: 60000)
+    * `:key_prefix` - Optional key prefix for uploaded file object
+
+  """
+  @spec upload(Context.t(), FileRef.t()) ::
+          {:ok, FileRef.t()} | {:error, operation_error()}
+  @spec upload(Context.t(), FileRef.t(), keyword()) ::
+          {:ok, FileRef.t()} | {:error, operation_error()}
+  def upload(context, file_ref, opts \\ [])
+
+  def upload(%Context{} = _context, %FileRef{source: :oss} = file_ref, _opts) do
+    {:ok, file_ref}
+  end
+
+  def upload(%Context{__hub_client__: hub_client}, %FileRef{source: :mem} = file_ref, opts) do
+    requester = Keyword.get(opts, :requester, &do_upload/3)
+    content = file_ref.content || ""
+
+    mime_type =
+      file_ref.mime_type || MIME.type(file_ref.extension || "") || "application/octet-stream"
+
+    upload_payload =
+      %{
+        "mime_type" => mime_type,
+        "key_prefix" => opts[:key_prefix]
+      }
+
+    with {:ok, %{"url" => url, "res_key" => res_key}} <-
+           HubCaller.call(hub_client, "get_upload_url", upload_payload),
+         :ok <- requester.(url, content, Keyword.put(opts, :content_type, mime_type)) do
+      {:ok,
+       %FileRef{
+         file_ref
+         | source: :oss,
+           content: nil,
+           size: byte_size(content),
+           res_key: res_key,
+           remote_url: nil
+       }}
+    else
+      {:ok, _} ->
+        {:error,
+         SdkError.new(:upload_error, "Hub call succeeded but response is missing required fields")}
+
+      err ->
+        err
+    end
+  end
+
+  @doc """
   Gets a pre-signed URL for an OSS file by its resource key.
 
   ## Options
@@ -109,6 +163,31 @@ defmodule AtomemoPluginSdk.Context.Files do
 
       {:error, reason} ->
         {:error, SdkError.new(:download_error, "Download failed with error #{inspect(reason)}")}
+    end
+  end
+
+  defp do_upload(url, content, opts) do
+    opts =
+      [
+        retry: false,
+        body: content,
+        receive_timeout: Keyword.get(opts, :receive_timeout, 60_000),
+        headers: %{"content-type" => opts[:content_type]}
+      ]
+
+    case Req.put(url, opts) do
+      {:ok, %Req.Response{status: status}} when status in 200..299 ->
+        :ok
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error,
+         SdkError.new(
+           :upload_error,
+           "Upload failed with status #{status} and #{inspect(body)}"
+         )}
+
+      {:error, reason} ->
+        {:error, SdkError.new(:upload_error, "Upload failed with error #{inspect(reason)}")}
     end
   end
 end

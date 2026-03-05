@@ -86,6 +86,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
         body: "abc",
         headers: %{"content-type" => ["application/pdf"]}
       }
+
       requester = fn _url, _opts -> {:ok, response} end
 
       assert {:ok, %FileRef{} = result} =
@@ -197,7 +198,12 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
         end)
 
       context = %Context{__hub_client__: hub_client, organization_id: ""}
-      file_ref = %FileRef{source: :oss, res_key: "path/to/file.pdf", mime_type: "application/custom"}
+
+      file_ref = %FileRef{
+        source: :oss,
+        res_key: "path/to/file.pdf",
+        mime_type: "application/custom"
+      }
 
       response = %Req.Response{
         status: 200,
@@ -211,5 +217,146 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
       assert result.mime_type == "application/custom"
     end
   end
+
+  describe "upload/3" do
+    test "returns oss file_ref unchanged for oss source" do
+      context = %Context{__hub_client__: self(), organization_id: ""}
+      file_ref = %FileRef{source: :oss, res_key: "already/oss.pdf"}
+
+      assert {:ok, ^file_ref} = Files.upload(context, file_ref)
+    end
+
+    test "normalizes mem source to oss source" do
+      hub_client =
+        spawn(fn ->
+          receive do
+            {:hub_call, "get_upload_url", request_id, _payload, from} ->
+              send(
+                from,
+                {:hub_call_response, request_id,
+                 %{
+                   "url" => "https://example.test/upload",
+                   "res_key" => "uploads/res-key-2"
+                 }}
+              )
+          end
+        end)
+
+      context = %Context{__hub_client__: hub_client, organization_id: ""}
+      file_ref = %FileRef{source: :mem, filename: "draft.txt", content: "hello"}
+
+      requester = fn _url, _content, _opts -> :ok end
+
+      assert {:ok, %FileRef{} = result} =
+               Files.upload(context, file_ref, requester: requester)
+
+      assert result.source == :oss
+      assert result.filename == "draft.txt"
+      assert result.content == nil
+      assert is_binary(result.res_key)
+      assert result.res_key != ""
+    end
+
+    test "performs real PUT upload for mem source via Req" do
+      hub_client =
+        spawn(fn ->
+          receive do
+            {:hub_call, "get_upload_url", request_id, payload, from} ->
+              assert payload["mime_type"] == "text/plain"
+              refute Map.has_key?(payload, "filename")
+              refute Map.has_key?(payload, "size")
+
+              send(
+                from,
+                {:hub_call_response, request_id,
+                 %{
+                   "url" => "http://localhost",
+                   "res_key" => "uploads/res-key-1"
+                 }}
+              )
+          end
+        end)
+
+      context = %Context{__hub_client__: hub_client, organization_id: ""}
+
+      file_ref = %FileRef{
+        source: :mem,
+        filename: "draft.txt",
+        mime_type: "text/plain",
+        content: "upload-bytes"
+      }
+
+      requester = fn _url, content, _opts ->
+        assert content == "upload-bytes"
+        :ok
+      end
+
+      assert {:ok, %FileRef{} = result} =
+               Files.upload(context, file_ref, requester: requester)
+
+      assert result.source == :oss
+      assert result.res_key == "uploads/res-key-1"
+      assert result.content == nil
+      assert result.size == byte_size("upload-bytes")
+    end
+
+    test "passes mime_type as content_type option to uploader" do
+      hub_client =
+        spawn(fn ->
+          receive do
+            {:hub_call, "get_upload_url", request_id, _payload, from} ->
+              send(
+                from,
+                {:hub_call_response, request_id,
+                 %{
+                   "url" => "https://example.test/upload",
+                   "res_key" => "uploads/res-key-3"
+                 }}
+              )
+          end
+        end)
+
+      context = %Context{__hub_client__: hub_client, organization_id: ""}
+
+      file_ref = %FileRef{
+        source: :mem,
+        filename: "draft.txt",
+        mime_type: "text/plain",
+        content: "upload-bytes"
+      }
+
+      requester = fn _url, _content, opts ->
+        assert opts[:content_type] == "text/plain"
+        :ok
+      end
+
+      assert {:ok, %FileRef{source: :oss}} = Files.upload(context, file_ref, requester: requester)
+    end
+
+    test "passes key_prefix to get_upload_url payload" do
+      hub_client =
+        spawn(fn ->
+          receive do
+            {:hub_call, "get_upload_url", request_id, payload, from} ->
+              assert payload["key_prefix"] == "plugins/avatar/"
+
+              send(
+                from,
+                {:hub_call_response, request_id,
+                 %{
+                   "url" => "https://example.test/upload",
+                   "res_key" => "uploads/res-key-4"
+                 }}
+              )
+          end
+        end)
+
+      context = %Context{__hub_client__: hub_client, organization_id: ""}
+      file_ref = %FileRef{source: :mem, filename: "draft.txt", content: "hello"}
+      requester = fn _url, _content, _opts -> :ok end
+
+      assert {:ok, %FileRef{source: :oss}} =
+               Files.upload(context, file_ref, requester: requester, key_prefix: "plugins/avatar/")
+    end
   end
 end
