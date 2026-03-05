@@ -243,13 +243,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
                 invoke: fn args ->
                   {:ok,
                    %{
-                    "params" => args.parameters,
-                    "creds" => args.credentials,
-                    "has_context_key" => Map.has_key?(args, :context),
-                    "organization_id" => args.context.organization_id,
-                    "has_context_hub_client" => is_pid(args.context.__hub_client__),
-                    "message" => "Single arg invoke"
-                  }}
+                     "params" => args.parameters,
+                     "creds" => args.credentials,
+                     "has_context_key" => Map.has_key?(args, :context),
+                     "organization_id" => args.context.organization_id,
+                     "has_context_hub_client" => is_pid(args.context.__hub_client__),
+                     "message" => "Single arg invoke"
+                   }}
                 end
               }
             ]
@@ -285,15 +285,15 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         "invoke_tool_response",
         %{
           "request_id" => "req_789",
-            "data" => %{
-              "params" => %{"input" => "test"},
-              "creds" => %{"api_key" => "secret"},
-              "has_context_key" => true,
-              "organization_id" => "",
-              "has_context_hub_client" => true,
-              "message" => "Single arg invoke"
-            }
-          },
+          "data" => %{
+            "params" => %{"input" => "test"},
+            "creds" => %{"api_key" => "secret"},
+            "has_context_key" => true,
+            "organization_id" => "",
+            "has_context_hub_client" => true,
+            "message" => "Single arg invoke"
+          }
+        },
         _
       )
     end
