@@ -248,6 +248,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
           request_id: request_id,
           parameters: parameters,
           credentials: credentials,
+          context: nil,
           hub_client: hub_client
         }
 

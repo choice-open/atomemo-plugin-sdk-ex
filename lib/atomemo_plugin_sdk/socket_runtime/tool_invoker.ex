@@ -56,24 +56,22 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
   defp call_tool_invoke(%ToolDefinition{} = tool, args) do
     try do
       result =
-        cond do
-          is_function(tool.invoke, 1) ->
-            tool.invoke.(args)
-
-          is_function(tool.invoke, 2) ->
-            tool.invoke.(args.parameters, args.credentials)
-
-          true ->
-            {:error,
-             SdkError.new(
-               :invalid_tool_invoke,
-               "Tool '#{tool.name}' must have invoke function with 1 or 2 arguments"
-             )}
+        if is_function(tool.invoke, 1) do
+          tool.invoke.(args)
+        else
+          {:error, :invalid_tool_invoke}
         end
 
       case result do
         {:ok, _} = ok_tuple ->
           ok_tuple
+
+        {:error, :invalid_tool_invoke} ->
+          {:error,
+           SdkError.new(
+             :invalid_tool_invoke,
+             "Tool '#{tool.name}' must have invoke function with 1 argument"
+           )}
 
         {:error, error} when is_non_struct_map(error) ->
           {:error, error}
