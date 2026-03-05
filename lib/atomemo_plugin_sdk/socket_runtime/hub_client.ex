@@ -11,7 +11,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   require Logger
 
-  alias AtomemoPluginSdk.{CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
+  alias AtomemoPluginSdk.{Context, CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
   alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker, SdkError}
 
   def start_link(opts \\ []) do
@@ -244,12 +244,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
       hub_client = get_hub_client(socket)
 
       Task.Supervisor.start_child(task_supervisor, fn ->
+        context = %Context{__hub_client__: hub_client, organization_id: ""}
+
         args = %{
           request_id: request_id,
           parameters: parameters,
           credentials: credentials,
-          context: nil,
-          hub_client: hub_client
+          context: context
         }
 
         case ToolInvoker.invoke(tool, args) do

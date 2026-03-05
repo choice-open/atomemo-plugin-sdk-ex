@@ -177,7 +177,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
   end
 
   describe "integration with invoke_tool" do
-    test "tool can call Hub via args.hub_client" do
+    test "tool can call Hub via args.context.__hub_client__" do
       defmodule HubCallerToolPlugin do
         def definition do
           PluginDefinition.new(%{
@@ -204,7 +204,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
                   }
                 ],
                 invoke: fn args ->
-                  case HubCaller.get_file_url(args.hub_client, args.parameters["res_key"]) do
+                  case HubCaller.get_file_url(args.context.__hub_client__, args.parameters["res_key"]) do
                     {:ok, data} ->
                       {:ok, data}
 
