@@ -30,8 +30,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
                 required: true
               }
             ],
-            invoke: fn params, _credentials ->
-              {:ok, %{"result" => "Processed: #{params["input"]}"}}
+            invoke: fn args ->
+              {:ok, %{"result" => "Processed: #{args.parameters["input"]}"}}
             end
           }
         ]
@@ -174,7 +174,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
                 description: %{"en_US" => "A tool that errors"},
                 icon: "🔧",
                 parameters: [],
-                invoke: fn _params, _credentials ->
+                invoke: fn _args ->
                   {:error, %{"message" => "Something went wrong"}}
                 end
               }
@@ -245,6 +245,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
                    %{
                      "params" => args.parameters,
                      "creds" => args.credentials,
+                     "has_context_key" => Map.has_key?(args, :context),
+                     "organization_id" => args.context.organization_id,
+                     "has_context_hub_client" => is_pid(args.context.__hub_client__),
                      "message" => "Single arg invoke"
                    }}
                 end
@@ -285,6 +288,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
           "data" => %{
             "params" => %{"input" => "test"},
             "creds" => %{"api_key" => "secret"},
+            "has_context_key" => true,
+            "organization_id" => "",
+            "has_context_hub_client" => true,
             "message" => "Single arg invoke"
           }
         },
@@ -292,31 +298,33 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       )
     end
 
-    test "handles tool with invoke/2 callback (two arguments)" do
-      defmodule TwoArgsPluginModule do
+    test "falls back to empty maps when parameters and credentials are missing" do
+      defmodule MissingPayloadPluginModule do
         def definition do
           PluginDefinition.new(%{
             lang: :elixir,
-            name: "two_args_plugin",
-            display_name: %{"en_US" => "Two Args Plugin"},
-            description: %{"en_US" => "A plugin with two args invoke"},
+            name: "missing_payload_plugin",
+            display_name: %{"en_US" => "Missing Payload Plugin"},
+            description: %{"en_US" => "A plugin for fallback payload behavior"},
             icon: "🔧",
             author: "Test",
             email: "test@example.com",
             version: "1.0.0",
             tools: [
               %{
-                name: "two_args_tool",
-                display_name: %{"en_US" => "Two Args Tool"},
-                description: %{"en_US" => "Tool with invoke/2"},
+                name: "missing_payload_tool",
+                display_name: %{"en_US" => "Missing Payload Tool"},
+                description: %{"en_US" => "Tool for fallback payload behavior"},
                 icon: "🔧",
                 parameters: [],
-                invoke: fn params, credentials ->
+                invoke: fn args ->
                   {:ok,
                    %{
-                     "params" => params,
-                     "creds" => credentials,
-                     "message" => "Two args invoke"
+                     "params" => args.parameters,
+                     "creds" => args.credentials,
+                     "has_context_key" => Map.has_key?(args, :context),
+                     "organization_id" => args.context.organization_id,
+                     "has_context_hub_client" => is_pid(args.context.__hub_client__)
                    }}
                 end
               }
@@ -329,34 +337,34 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         start_supervised!(
           {HubClient,
            [
-             plugin_module: TwoArgsPluginModule,
+             plugin_module: MissingPayloadPluginModule,
              test_mode?: true,
              task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
            ]}
         )
 
       accept_connect(client)
-      assert_join("debug_plugin:two_args_plugin", %{}, :ok)
+      assert_join("debug_plugin:missing_payload_plugin", %{}, :ok)
 
-      assert_push("debug_plugin:two_args_plugin", "register_plugin", _plugin, ref)
+      assert_push("debug_plugin:missing_payload_plugin", "register_plugin", _plugin, ref)
       reply(client, ref, :ok)
 
-      push(client, "debug_plugin:two_args_plugin", "invoke_tool", %{
-        "request_id" => "req_890",
-        "tool_name" => "two_args_tool",
-        "parameters" => %{"input" => "test2"},
-        "credentials" => %{"token" => "bearer123"}
+      push(client, "debug_plugin:missing_payload_plugin", "invoke_tool", %{
+        "request_id" => "req_missing",
+        "tool_name" => "missing_payload_tool"
       })
 
       assert_push(
-        "debug_plugin:two_args_plugin",
+        "debug_plugin:missing_payload_plugin",
         "invoke_tool_response",
         %{
-          "request_id" => "req_890",
+          "request_id" => "req_missing",
           "data" => %{
-            "params" => %{"input" => "test2"},
-            "creds" => %{"token" => "bearer123"},
-            "message" => "Two args invoke"
+            "params" => %{},
+            "creds" => %{},
+            "has_context_key" => true,
+            "organization_id" => "",
+            "has_context_hub_client" => true
           }
         },
         _

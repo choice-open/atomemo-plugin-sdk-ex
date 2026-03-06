@@ -54,13 +54,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     %{client: client}
   end
 
-  describe "get_file_url/3" do
+  describe "call/4" do
     setup :setup_connected_client
 
     test "returns {:ok, data} on successful response", %{client: client} do
       task =
         Task.async(fn ->
-          HubCaller.get_file_url(client, "path/to/file.pdf")
+          HubCaller.call(client, "get_file_url", %{"res_key" => "path/to/file.pdf"})
         end)
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", payload, _ref)
@@ -78,7 +78,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     test "returns {:error, {:hub_error, code, message}} on error response", %{client: client} do
       task =
         Task.async(fn ->
-          HubCaller.get_file_url(client, "invalid/key")
+          HubCaller.call(client, "get_file_url", %{"res_key" => "invalid/key"})
         end)
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", payload, _ref)
@@ -95,7 +95,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     test "returns {:error, :timeout} when Hub does not respond", %{client: client} do
       task =
         Task.async(fn ->
-          HubCaller.get_file_url(client, "slow/file.pdf", timeout: 50)
+          HubCaller.call(client, "get_file_url", %{"res_key" => "slow/file.pdf"}, timeout: 50)
         end)
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", _payload, _ref)
@@ -108,7 +108,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
 
       task =
         Task.async(fn ->
-          HubCaller.get_file_url(client, "path/to/file.pdf", timeout: 5_000)
+          HubCaller.call(client, "get_file_url", %{"res_key" => "path/to/file.pdf"},
+            timeout: 5_000
+          )
         end)
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", _payload, _ref)
@@ -124,7 +126,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
       tasks =
         for i <- 1..3 do
           Task.async(fn ->
-            HubCaller.get_file_url(client, "file_#{i}.pdf")
+            HubCaller.call(client, "get_file_url", %{"res_key" => "file_#{i}.pdf"})
           end)
         end
 
@@ -162,7 +164,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
 
       _task =
         Task.async(fn ->
-          HubCaller.get_file_url(client, "timeout/file.pdf", timeout: 50)
+          HubCaller.call(client, "get_file_url", %{"res_key" => "timeout/file.pdf"}, timeout: 50)
         end)
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", _payload, _ref)
@@ -176,8 +178,30 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     end
   end
 
+  describe "demo_hub_call/3" do
+    setup :setup_connected_client
+
+    test "sends demo_hub_call event and returns response data", %{client: client} do
+      task =
+        Task.async(fn ->
+          HubCaller.demo_hub_call(client, "ok-demo")
+        end)
+
+      assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:demo_hub_call", payload, _ref)
+      assert payload["data"] == %{"result" => "ok-demo"}
+      request_id = payload["request_id"]
+
+      push(client, "debug_plugin:hub_caller_test_plugin", "hub_call_response", %{
+        "request_id" => request_id,
+        "data" => %{"echo" => "ok-demo"}
+      })
+
+      assert {:ok, %{"echo" => "ok-demo"}} = Task.await(task)
+    end
+  end
+
   describe "integration with invoke_tool" do
-    test "tool can call Hub via args.hub_client" do
+    test "tool can call Hub via args.context.__hub_client__" do
       defmodule HubCallerToolPlugin do
         def definition do
           PluginDefinition.new(%{
@@ -204,7 +228,11 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
                   }
                 ],
                 invoke: fn args ->
-                  case HubCaller.get_file_url(args.hub_client, args.parameters["res_key"]) do
+                  case HubCaller.call(
+                         args.context.__hub_client__,
+                         "get_file_url",
+                         %{"res_key" => args.parameters["res_key"]}
+                       ) do
                     {:ok, data} ->
                       {:ok, data}
 

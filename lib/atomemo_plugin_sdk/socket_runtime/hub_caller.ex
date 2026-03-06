@@ -1,31 +1,12 @@
 defmodule AtomemoPluginSdk.SocketRuntime.HubCaller do
   @moduledoc """
-  Provides synchronous API for calling Hub from within tool invoke callbacks.
-
-  Supports multiple and concurrent calls within a single tool invocation.
+  Provides a synchronous generic call API for Hub interactions from tool callbacks.
   """
 
   @default_timeout 10_000
 
-  def demo_hub_call(hub_client, result, opts \\ []) when is_binary(result) do
-    call(hub_client, "demo_hub_call", %{"result" => result}, opts)
-  end
-
-  def invoke_llm(hub_client, llm_config, messages, organization_id) do
-    call(
-      hub_client,
-      "invoke_llm",
-      %{
-        llm_config: llm_config,
-        messages: messages,
-        organization_id: organization_id
-      },
-      timeout: :timer.minutes(15)
-    )
-  end
-
   @typedoc """
-  Error types returned by HubCaller functions.
+  Error types returned by HubCaller.
 
   - `{:hub_error, code, message}` - Hub returned a business error
   - `:timeout` - Request timed out
@@ -34,34 +15,24 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCaller do
   @type error :: {:hub_error, String.t(), String.t()} | :timeout | {:hub_client_down, term()}
 
   @doc """
-  Gets a presigned URL for an OSS file by its resource key.
+  Convenience wrapper for Hub `demo_hub_call` event.
+  """
+  @spec demo_hub_call(pid() | atom(), String.t(), keyword()) :: {:ok, map()} | {:error, error()}
+  def demo_hub_call(hub_client, result, opts \\ []) when is_binary(result) do
+    call(hub_client, "demo_hub_call", %{"result" => result}, opts)
+  end
+
+  @doc """
+  Sends a generic hub event and waits for response.
 
   ## Options
 
     * `:timeout` - Request timeout in milliseconds (default: #{@default_timeout})
-
-  ## Examples
-
-      {:ok, %{"url" => url}} = HubCaller.get_file_url(hub_client, "path/to/file.pdf")
-      {:ok, %{"url" => url}} = HubCaller.get_file_url(hub_client, "path/to/file.pdf", timeout: 10_000)
-
-      # Error handling
-      case HubCaller.get_file_url(hub_client, res_key) do
-        {:ok, data} -> data["url"]
-        {:error, {:hub_error, code, msg}} -> handle_hub_error(code, msg)
-        {:error, :timeout} -> handle_timeout()
-        {:error, {:hub_client_down, _}} -> handle_disconnect()
-      end
-
   """
-  @spec get_file_url(pid() | atom(), String.t(), keyword()) ::
+  @spec call(pid() | atom(), String.t(), map(), keyword()) ::
           {:ok, map()} | {:error, error()}
-  def get_file_url(hub_client, res_key, opts \\ []) when is_binary(res_key) do
-    call(hub_client, "get_file_url", %{"res_key" => res_key}, opts)
-  end
-
-  defp call(hub_client, event, payload, opts)
-       when is_binary(event) and is_map(payload) and is_list(opts) do
+  def call(hub_client, event, payload, opts \\ [])
+      when is_binary(event) and is_map(payload) and is_list(opts) do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
     request_id = Ecto.UUID.generate()
     monitor_ref = Process.monitor(hub_client)
