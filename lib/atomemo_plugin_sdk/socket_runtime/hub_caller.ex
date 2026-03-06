@@ -5,19 +5,6 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCaller do
 
   @default_timeout 10_000
 
-  def invoke_llm(hub_client, llm_config, messages, organization_id) do
-    call(
-      hub_client,
-      "invoke_llm",
-      %{
-        llm_config: llm_config,
-        messages: messages,
-        organization_id: organization_id
-      },
-      timeout: :timer.minutes(15)
-    )
-  end
-
   @typedoc """
   Error types returned by HubCaller.
 
