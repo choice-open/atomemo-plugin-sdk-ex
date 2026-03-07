@@ -240,11 +240,15 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
          {:ok, tool} <- find_tool_by_name(socket, tool_name) do
       parameters = message["parameters"] || %{}
       credentials = message["credentials"] || %{}
+      raw_context = message["context"] || %{}
       task_supervisor = socket.assigns.task_supervisor
       hub_client = get_hub_client(socket)
 
       Task.Supervisor.start_child(task_supervisor, fn ->
-        context = %Context{__hub_client__: hub_client, organization_id: ""}
+        context = %Context{
+          __hub_client__: hub_client,
+          organization_id: raw_context["organization_id"]
+        }
 
         args = %{
           request_id: request_id,

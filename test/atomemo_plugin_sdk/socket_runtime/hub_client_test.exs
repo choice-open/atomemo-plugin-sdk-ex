@@ -140,7 +140,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       push(client, "debug_plugin:test_plugin", "invoke_tool", %{
         "request_id" => "req_123",
         "tool_name" => "test_tool",
-        "parameters" => %{"input" => "hello"}
+        "parameters" => %{"input" => "hello"},
+        "context" => %{"organization_id" => "org_123"}
       })
 
       # Assert client responds with invoke_tool_response
@@ -205,7 +206,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         push(client, "debug_plugin:error_plugin", "invoke_tool", %{
           "request_id" => "req_456",
           "tool_name" => "error_tool",
-          "parameters" => %{}
+          "parameters" => %{},
+          "context" => %{"organization_id" => "org_456"}
         })
 
         # Assert client responds with invoke_tool_error
@@ -277,7 +279,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         "request_id" => "req_789",
         "tool_name" => "single_arg_tool",
         "parameters" => %{"input" => "test"},
-        "credentials" => %{"api_key" => "secret"}
+        "credentials" => %{"api_key" => "secret"},
+        "context" => %{"organization_id" => "org_123"}
       })
 
       assert_push(
@@ -289,7 +292,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
             "params" => %{"input" => "test"},
             "creds" => %{"api_key" => "secret"},
             "has_context_key" => true,
-            "organization_id" => "",
+            "organization_id" => "org_123",
             "has_context_hub_client" => true,
             "message" => "Single arg invoke"
           }
@@ -351,7 +354,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
 
       push(client, "debug_plugin:missing_payload_plugin", "invoke_tool", %{
         "request_id" => "req_missing",
-        "tool_name" => "missing_payload_tool"
+        "tool_name" => "missing_payload_tool",
+        "context" => %{"organization_id" => "org_123"}
       })
 
       assert_push(
@@ -363,7 +367,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
             "params" => %{},
             "creds" => %{},
             "has_context_key" => true,
-            "organization_id" => "",
+            "organization_id" => "org_123",
             "has_context_hub_client" => true
           }
         },

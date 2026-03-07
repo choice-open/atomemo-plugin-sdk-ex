@@ -240,7 +240,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
                 from,
                 {:hub_call_response, request_id,
                  %{
-                   "url" => "https://example.test/upload",
+                   "presigned_url" => "https://example.test/upload",
                    "res_key" => "uploads/res-key-2"
                  }}
               )
@@ -275,7 +275,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
                 from,
                 {:hub_call_response, request_id,
                  %{
-                   "url" => "http://localhost",
+                   "presigned_url" => "http://localhost",
                    "res_key" => "uploads/res-key-1"
                  }}
               )
@@ -314,7 +314,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
                 from,
                 {:hub_call_response, request_id,
                  %{
-                   "url" => "https://example.test/upload",
+                   "presigned_url" => "https://example.test/upload",
                    "res_key" => "uploads/res-key-3"
                  }}
               )
@@ -349,7 +349,7 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
                 from,
                 {:hub_call_response, request_id,
                  %{
-                   "url" => "https://example.test/upload",
+                   "presigned_url" => "https://example.test/upload",
                    "res_key" => "uploads/res-key-4"
                  }}
               )
