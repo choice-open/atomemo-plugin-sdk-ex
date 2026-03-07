@@ -7,7 +7,8 @@ defmodule AtomemoPluginSdk.Context.Files do
 
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.FileRef
-  alias AtomemoPluginSdk.SocketRuntime.{HubCaller, SdkError}
+  alias AtomemoPluginSdk.SdkError
+  alias AtomemoPluginSdk.SocketRuntime.HubCaller
 
   @type operation_error :: SdkError.t() | HubCaller.error()
 

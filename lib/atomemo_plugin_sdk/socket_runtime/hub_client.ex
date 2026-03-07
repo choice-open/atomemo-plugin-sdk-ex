@@ -12,7 +12,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   require Logger
 
   alias AtomemoPluginSdk.{Context, CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
-  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker, SdkError}
+  alias AtomemoPluginSdk.SdkError
+  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
 
   def start_link(opts \\ []) do
     init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])

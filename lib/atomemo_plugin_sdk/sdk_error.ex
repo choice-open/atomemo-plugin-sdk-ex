@@ -1,4 +1,4 @@
-defmodule AtomemoPluginSdk.SocketRuntime.SdkError do
+defmodule AtomemoPluginSdk.SdkError do
   @moduledoc false
 
   defstruct [:code, :message]
