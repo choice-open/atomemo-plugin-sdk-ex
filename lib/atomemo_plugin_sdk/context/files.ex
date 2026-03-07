@@ -103,9 +103,9 @@ defmodule AtomemoPluginSdk.Context.Files do
         "key_prefix" => opts[:key_prefix]
       }
 
-    with {:ok, %{"url" => url, "res_key" => res_key}} <-
+    with {:ok, %{"presigned_url" => presigned_url, "res_key" => res_key}} <-
            HubCaller.call(hub_client, "get_upload_url", upload_payload),
-         :ok <- requester.(url, content, Keyword.put(opts, :content_type, mime_type)) do
+         :ok <- requester.(presigned_url, content, Keyword.put(opts, :content_type, mime_type)) do
       {:ok,
        %FileRef{
          file_ref
@@ -176,7 +176,7 @@ defmodule AtomemoPluginSdk.Context.Files do
     end
   end
 
-  defp do_upload(url, content, opts) do
+  defp do_upload(presigned_url, content, opts) do
     opts =
       [
         retry: false,
@@ -185,7 +185,7 @@ defmodule AtomemoPluginSdk.Context.Files do
         headers: %{"content-type" => opts[:content_type]}
       ]
 
-    case Req.put(url, opts) do
+    case Req.put(presigned_url, opts) do
       {:ok, %Req.Response{status: status}} when status in 200..299 ->
         :ok
 
