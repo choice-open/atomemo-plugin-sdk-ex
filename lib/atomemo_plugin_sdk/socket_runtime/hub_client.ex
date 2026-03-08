@@ -12,7 +12,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   require Logger
 
   alias AtomemoPluginSdk.{Context, CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
-  alias AtomemoPluginSdk.SdkError
+  alias AtomemoPluginSdk.{SdkError, TransientError}
   alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
 
   def start_link(opts \\ []) do
@@ -197,6 +197,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     error_payload =
       case error do
         %SdkError{} = err -> SdkError.to_map(err)
+        %TransientError{} = err -> TransientError.to_map(err)
         %{} = map -> map
         other -> other
       end
