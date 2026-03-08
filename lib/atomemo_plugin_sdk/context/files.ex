@@ -17,7 +17,8 @@ defmodule AtomemoPluginSdk.Context.Files do
 
     * `:receive_timeout` - Download timeout in milliseconds (default: 15000)
   """
-  @spec download(Context.t(), FileRef.t()) :: {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
+  @spec download(Context.t(), FileRef.t()) ::
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   @spec download(Context.t(), FileRef.t(), keyword()) ::
           {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   def download(context, file_ref, opts \\ [])
@@ -125,9 +126,9 @@ defmodule AtomemoPluginSdk.Context.Files do
     * `:expires_in` - Request timeout in seconds (default: 3600)
   """
   @spec attach_download_url(Context.t(), FileRef.t()) ::
-          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
+          {:ok, FileRef.t()} | {:error, :not_supported | HubCaller.error()}
   @spec attach_download_url(Context.t(), FileRef.t(), keyword()) ::
-          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
+          {:ok, FileRef.t()} | {:error, :not_supported | HubCaller.error()}
   def attach_download_url(context, file_ref, opts \\ [])
 
   def attach_download_url(
@@ -142,11 +143,7 @@ defmodule AtomemoPluginSdk.Context.Files do
   end
 
   def attach_download_url(_context, %FileRef{source: :mem}, _opts) do
-    {:error,
-     SdkError.new(
-       :invalid_operation,
-       "Cannot attach download URL to a file that is already in memory"
-     )}
+    {:error, :not_supported}
   end
 
   defp do_download(url, opts) do
