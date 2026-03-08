@@ -4,7 +4,6 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.Context.Files
   alias AtomemoPluginSdk.FileRef
-  alias AtomemoPluginSdk.SdkError
 
   describe "attach_download_url/3" do
     test "returns file_ref with remote_url for oss source" do

@@ -7,10 +7,8 @@ defmodule AtomemoPluginSdk.Context.Files do
 
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.FileRef
-  alias AtomemoPluginSdk.SdkError
+  alias AtomemoPluginSdk.TransientError
   alias AtomemoPluginSdk.SocketRuntime.HubCaller
-
-  @type operation_error :: SdkError.t() | HubCaller.error()
 
   @doc """
   Downloads a file from OSS to memory.
@@ -19,9 +17,9 @@ defmodule AtomemoPluginSdk.Context.Files do
 
     * `:receive_timeout` - Download timeout in milliseconds (default: 15000)
   """
-  @spec download(Context.t(), FileRef.t()) :: {:ok, FileRef.t()} | {:error, operation_error()}
+  @spec download(Context.t(), FileRef.t()) :: {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   @spec download(Context.t(), FileRef.t(), keyword()) ::
-          {:ok, FileRef.t()} | {:error, operation_error()}
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   def download(context, file_ref, opts \\ [])
 
   def download(_context, %FileRef{source: :mem} = file_ref, _opts) do
@@ -82,9 +80,9 @@ defmodule AtomemoPluginSdk.Context.Files do
 
   """
   @spec upload(Context.t(), FileRef.t()) ::
-          {:ok, FileRef.t()} | {:error, operation_error()}
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   @spec upload(Context.t(), FileRef.t(), keyword()) ::
-          {:ok, FileRef.t()} | {:error, operation_error()}
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   def upload(context, file_ref, opts \\ [])
 
   def upload(%Context{} = _context, %FileRef{source: :oss} = file_ref, _opts) do
@@ -127,9 +125,9 @@ defmodule AtomemoPluginSdk.Context.Files do
     * `:expires_in` - Request timeout in seconds (default: 3600)
   """
   @spec attach_download_url(Context.t(), FileRef.t()) ::
-          {:ok, FileRef.t()} | {:error, operation_error()}
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   @spec attach_download_url(Context.t(), FileRef.t(), keyword()) ::
-          {:ok, FileRef.t()} | {:error, operation_error()}
+          {:ok, FileRef.t()} | {:error, TransientError.t() | HubCaller.error()}
   def attach_download_url(context, file_ref, opts \\ [])
 
   def attach_download_url(
@@ -158,15 +156,11 @@ defmodule AtomemoPluginSdk.Context.Files do
       {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
         {:ok, response}
 
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error,
-         SdkError.new(
-           :download_error,
-           "Download failed with status #{status} and #{inspect(body)}"
-         )}
+      {:ok, %Req.Response{} = response} ->
+        {:error, TransientError.new(:download_failed, response: response)}
 
       {:error, reason} ->
-        {:error, SdkError.new(:download_error, "Download failed with error #{inspect(reason)}")}
+        {:error, TransientError.new(:download_failed, reason: reason)}
     end
   end
 
@@ -183,15 +177,11 @@ defmodule AtomemoPluginSdk.Context.Files do
       {:ok, %Req.Response{status: status}} when status in 200..299 ->
         :ok
 
-      {:ok, %Req.Response{status: status, body: body}} ->
-        {:error,
-         SdkError.new(
-           :upload_error,
-           "Upload failed with status #{status} and #{inspect(body)}"
-         )}
+      {:ok, %Req.Response{} = response} ->
+        {:error, TransientError.new(:upload_failed, response: response)}
 
       {:error, reason} ->
-        {:error, SdkError.new(:upload_error, "Upload failed with error #{inspect(reason)}")}
+        {:error, TransientError.new(:upload_failed, reason: reason)}
     end
   end
 end
