@@ -116,13 +116,6 @@ defmodule AtomemoPluginSdk.Context.Files do
            res_key: res_key,
            remote_url: nil
        }}
-    else
-      {:ok, _} ->
-        {:error,
-         SdkError.new(:upload_error, "Hub call succeeded but response is missing required fields")}
-
-      err ->
-        err
     end
   end
 
