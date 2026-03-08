@@ -3,7 +3,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvokerTest do
 
   import ExUnit.CaptureLog
 
-  alias AtomemoPluginSdk.SocketRuntime.{SdkError, ToolInvoker}
+  alias AtomemoPluginSdk.SdkError
+  alias AtomemoPluginSdk.SocketRuntime.ToolInvoker
   alias AtomemoPluginSdk.ToolDefinition
 
   test "returns invalid_tool_invoke for legacy invoke/2 callback" do

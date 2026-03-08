@@ -6,7 +6,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.CredentialInvoker do
   require Logger
 
   alias AtomemoPluginSdk.CredentialDefinition
-  alias AtomemoPluginSdk.SocketRuntime.SdkError
+  alias AtomemoPluginSdk.SdkError
 
   @default_timeout_ms 5_000
 

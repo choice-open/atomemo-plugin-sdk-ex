@@ -6,7 +6,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.ToolInvoker do
   require Logger
 
   alias AtomemoPluginSdk.ToolDefinition
-  alias AtomemoPluginSdk.SocketRuntime.SdkError
+  alias AtomemoPluginSdk.SdkError
 
   @max_timeout_ms 30 * 60 * 1_000
 

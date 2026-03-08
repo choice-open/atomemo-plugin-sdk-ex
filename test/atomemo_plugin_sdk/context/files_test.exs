@@ -4,7 +4,6 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
   alias AtomemoPluginSdk.Context
   alias AtomemoPluginSdk.Context.Files
   alias AtomemoPluginSdk.FileRef
-  alias AtomemoPluginSdk.SocketRuntime.SdkError
 
   describe "attach_download_url/3" do
     test "returns file_ref with remote_url for oss source" do
@@ -35,12 +34,11 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
       assert_receive {:hub_called_with, "path/to/file.pdf"}
     end
 
-    test "returns sdk invalid_operation error for mem source" do
+    test "returns error for mem source" do
       context = %Context{__hub_client__: self(), organization_id: ""}
       file_ref = %FileRef{source: :mem}
 
-      assert {:error, %SdkError{code: :invalid_operation}} =
-               Files.attach_download_url(context, file_ref)
+      assert {:error, :not_supported} = Files.attach_download_url(context, file_ref)
     end
 
     test "propagates hub error for oss source" do
