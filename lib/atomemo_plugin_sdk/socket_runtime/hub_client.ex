@@ -11,9 +11,19 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   require Logger
 
-  alias AtomemoPluginSdk.{Context, CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
+  alias AtomemoPluginSdk.{
+    Context,
+    CredentialDefinition,
+    PluginDefinition,
+    SocketRuntimeConfig,
+    ToolDefinition
+  }
+
   alias AtomemoPluginSdk.{SdkError, TransientError}
-  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
+  alias AtomemoPluginSdk.SocketRuntime.CallbackRunner
+
+  @max_tool_timeout_ms 30 * 60 * 1_000
+  @credential_auth_timeout_ms 5_000
 
   def start_link(opts \\ []) do
     init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])
@@ -240,33 +250,38 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, tool_name} <- extract_tool_name(message),
          {:ok, tool} <- find_tool_by_name(socket, tool_name) do
+      hub_client = get_hub_client(socket)
       parameters = message["parameters"] || %{}
       credentials = message["credentials"] || %{}
       raw_context = message["context"] || %{}
-      task_supervisor = socket.assigns.task_supervisor
-      hub_client = get_hub_client(socket)
+      context = build_context(raw_context, hub_client, request_id)
 
-      Task.Supervisor.start_child(task_supervisor, fn ->
-        context = %Context{
-          __hub_client__: hub_client,
-          organization_id: raw_context["organization_id"]
-        }
+      args = %{
+        parameters: parameters,
+        credentials: credentials,
+        context: context
+      }
 
-        args = %{
-          request_id: request_id,
-          parameters: parameters,
-          credentials: credentials,
-          context: context
-        }
+      timeout_ms = min(tool.timeout || @max_tool_timeout_ms, @max_tool_timeout_ms)
 
-        case ToolInvoker.invoke(tool, args) do
-          {:ok, result} ->
-            send(hub_client, {:invoke_tool_response, topic, request_id, result})
-
-          {:error, error} ->
-            send(hub_client, {:invoke_tool_error, topic, request_id, error})
-        end
-      end)
+      CallbackRunner.dispatch(
+        tool.invoke,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :invoke_tool_response,
+        error_event: :invoke_tool_error,
+        topic: topic,
+        run_opts: [
+          label: "tool '#{tool.name}' invocation",
+          timeout_ms: timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_tool_invoke,
+              "Tool '#{tool.name}' must have invoke function with 1 argument"
+            )
+        ]
+      )
 
       socket
     else
@@ -278,6 +293,15 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
         socket
     end
+  end
+
+  defp build_context(raw_context, hub_client, request_id)
+       when is_map(raw_context) and is_binary(request_id) do
+    %Context{
+      __hub_client__: hub_client,
+      organization_id: raw_context["organization_id"],
+      request_id: request_id
+    }
   end
 
   defp get_hub_client(socket) do
@@ -343,6 +367,49 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   end
 
   defp handle_credential_auth_spec(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, credential_name} <- extract_credential_name(message),
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        credential: message["credential"] || %{},
+        extra: message["extra"] || %{},
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        cred_def.authenticate,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :credential_auth_spec_response,
+        error_event: :credential_auth_spec_error,
+        topic: topic,
+        run_opts: [
+          label: "credential '#{cred_def.name}' authentication",
+          timeout_ms: @credential_auth_timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_credential_authenticate,
+              "authenticate must be a function with arity 1"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "credential_auth_spec_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
          {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
@@ -447,7 +514,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp find_tool(tools, tool_name) when is_binary(tool_name) do
     case Enum.find(tools, fn tool -> tool.name == tool_name end) do
       nil -> {:error, "Tool '#{tool_name}' not found"}
-      tool -> {:ok, tool}
+      %ToolDefinition{} = tool -> {:ok, tool}
     end
   end
 

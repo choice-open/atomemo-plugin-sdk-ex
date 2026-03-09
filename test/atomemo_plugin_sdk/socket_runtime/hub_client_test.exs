@@ -398,12 +398,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
             credentials: [
               %{
                 name: "openai",
-                authenticate: fn _args ->
+                authenticate: fn args ->
                   {:ok,
                    %{
                      "adapter" => "openai",
                      "endpoint" => "https://api.openai.com/chat/completions",
-                     "headers" => %{}
+                     "headers" => %{
+                       "x-api-key" => args.credential["api_key"]
+                     }
                    }}
                 end
               }
@@ -444,7 +446,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
           "data" => %{
             "adapter" => "openai",
             "endpoint" => "https://api.openai.com/chat/completions",
-            "headers" => %{}
+            "headers" => %{"x-api-key" => "sk-xxx"}
           }
         },
         _
@@ -502,7 +504,10 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
           "credential_auth_spec_error",
           %{
             "request_id" => "auth_req_2",
-            "error" => %{"code" => "sdk:not_supported", "message" => "auth_spec not supported"}
+            "error" => %{
+              "code" => "sdk:invalid_credential_authenticate",
+              "message" => "authenticate must be a function with arity 1"
+            }
           },
           _
         )
