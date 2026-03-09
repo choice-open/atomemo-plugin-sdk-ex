@@ -740,4 +740,166 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       end)
     end
   end
+
+  describe "oauth2 callbacks" do
+    setup do
+      System.put_env("HUB_MODE", "debug")
+      System.put_env("HUB_DEBUG_API_KEY", "test_api_key")
+      :ok
+    end
+
+    test "handles oauth2_build_authorize_url, oauth2_get_token and oauth2_refresh_token" do
+      defmodule OAuth2PluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "oauth2_plugin",
+            display_name: %{"en_US" => "OAuth2 Plugin"},
+            description: %{"en_US" => "Plugin with oauth2 callbacks"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "google_drive",
+                oauth2: true,
+                oauth2_build_authorize_url: fn %{redirect_uri: redirect_uri, state: state} ->
+                  {:ok, %{"url" => "#{redirect_uri}?state=#{state}"}}
+                end,
+                oauth2_get_token: fn %{code: code} ->
+                  {:ok, %{"parameters_patch" => %{"access_token" => "token_#{code}"}}}
+                end,
+                oauth2_refresh_token: fn _args ->
+                  {:ok, %{"parameters_patch" => %{"access_token" => "token_refreshed"}}}
+                end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: OAuth2PluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:oauth2_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:oauth2_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:oauth2_plugin", "oauth2_build_authorize_url", %{
+        "request_id" => "oauth_req_1",
+        "credential_name" => "google_drive",
+        "redirect_uri" => "https://hub.example.com/callback",
+        "state" => "state_123"
+      })
+
+      assert_push(
+        "debug_plugin:oauth2_plugin",
+        "oauth2_build_authorize_url_response",
+        %{
+          "request_id" => "oauth_req_1",
+          "data" => %{"url" => "https://hub.example.com/callback?state=state_123"}
+        },
+        _
+      )
+
+      push(client, "debug_plugin:oauth2_plugin", "oauth2_get_token", %{
+        "request_id" => "oauth_req_2",
+        "credential_name" => "google_drive",
+        "code" => "abc123"
+      })
+
+      assert_push(
+        "debug_plugin:oauth2_plugin",
+        "oauth2_get_token_response",
+        %{
+          "request_id" => "oauth_req_2",
+          "data" => %{"parameters_patch" => %{"access_token" => "token_abc123"}}
+        },
+        _
+      )
+
+      push(client, "debug_plugin:oauth2_plugin", "oauth2_refresh_token", %{
+        "request_id" => "oauth_req_3",
+        "credential_name" => "google_drive",
+        "credential" => %{"refresh_token" => "rt_1"}
+      })
+
+      assert_push(
+        "debug_plugin:oauth2_plugin",
+        "oauth2_refresh_token_response",
+        %{
+          "request_id" => "oauth_req_3",
+          "data" => %{"parameters_patch" => %{"access_token" => "token_refreshed"}}
+        },
+        _
+      )
+    end
+
+    test "handles oauth2 callback errors when callback not found" do
+      defmodule OAuth2NoCallbackPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "oauth2_no_callback_plugin",
+            display_name: %{"en_US" => "OAuth2 No Callback Plugin"},
+            description: %{"en_US" => "Plugin without oauth2 callback"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [%{name: "google_drive", oauth2: true}],
+            tools: []
+          })
+        end
+      end
+
+      ExUnit.CaptureLog.capture_log(fn ->
+        client =
+          start_supervised!(
+            {HubClient,
+             [
+               plugin_module: OAuth2NoCallbackPluginModule,
+               test_mode?: true,
+               task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+             ]}
+          )
+
+        accept_connect(client)
+        assert_join("debug_plugin:oauth2_no_callback_plugin", %{}, :ok)
+
+        assert_push("debug_plugin:oauth2_no_callback_plugin", "register_plugin", _plugin, ref)
+        reply(client, ref, :ok)
+
+        push(client, "debug_plugin:oauth2_no_callback_plugin", "oauth2_get_token", %{
+          "request_id" => "oauth_req_error",
+          "credential_name" => "google_drive",
+          "code" => "abc123"
+        })
+
+        assert_push(
+          "debug_plugin:oauth2_no_callback_plugin",
+          "oauth2_get_token_error",
+          %{
+            "request_id" => "oauth_req_error",
+            "error" => %{
+              "code" => "sdk:invalid_callback",
+              "message" => "oauth2_get_token must be a function with arity 1"
+            }
+          },
+          _
+        )
+      end)
+    end
+  end
 end
