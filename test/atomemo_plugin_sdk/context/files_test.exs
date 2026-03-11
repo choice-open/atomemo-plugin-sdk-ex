@@ -265,7 +265,8 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
         spawn(fn ->
           receive do
             {:hub_call, "get_upload_url", request_id, payload, from} ->
-              assert payload["mime_type"] == "text/plain"
+              assert payload["extension"] == ".txt"
+              refute Map.has_key?(payload, "mime_type")
               refute Map.has_key?(payload, "filename")
               refute Map.has_key?(payload, "size")
 
@@ -286,7 +287,8 @@ defmodule AtomemoPluginSdk.Context.FilesTest do
         source: :mem,
         filename: "draft.txt",
         mime_type: "text/plain",
-        content: "upload-bytes"
+        content: "upload-bytes",
+        extension: ".txt"
       }
 
       requester = fn _url, content, _opts ->

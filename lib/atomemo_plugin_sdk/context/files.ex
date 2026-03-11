@@ -99,8 +99,7 @@ defmodule AtomemoPluginSdk.Context.Files do
     upload_payload =
       %{
         "extension" => file_ref.extension || "",
-        "key_prefix" => opts[:key_prefix],
-        "mime_type" => mime_type
+        "key_prefix" => opts[:key_prefix]
       }
 
     with {:ok, %{"presigned_url" => presigned_url, "res_key" => res_key}} <-
