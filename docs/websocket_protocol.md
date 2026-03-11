@@ -249,6 +249,163 @@ sequenceDiagram
 
 ---
 
+## Credential OAuth2 流程
+
+本节描述 Hub 与插件之间围绕 **OAuth2 credential** 的三类调用：
+
+- **oauth2_build_authorize_url**：根据 credential 配置生成第三方授权 URL
+- **oauth2_get_token**：在用户完成授权后，用 `code` 换取/写回 access_token 等参数
+- **oauth2_refresh_token**：使用 `refresh_token` 刷新 access_token 等参数
+
+这些事件只会针对在 `PluginDefinition.credentials` 中声明了 `oauth2: true` 的 credential 发生。
+
+### 总体流程说明
+
+- Hub 在 Web 侧控制 OAuth2 流程（打开浏览器窗口、处理回调等）。
+- 对于每一个 credential OAuth2 操作，Hub 会：
+  - 生成唯一 `request_id`；
+  - 向插件推送对应事件（`oauth2_build_authorize_url` / `oauth2_get_token` / `oauth2_refresh_token`）；
+  - 等待插件通过 `*_response` 或 `*_error` 事件回复。
+- 插件运行时收到事件后，会调用对应的 credential 回调：
+  - `oauth2_build_authorize_url.(args)` / `oauth2_get_token.(args)` / `oauth2_refresh_token.(args)`；
+  - 成功时返回 `{:ok, result}`，SDK 通过 `*_response` 事件把 `result` 写到 `data` 字段中；
+  - 失败时返回 `{:error, error}`，SDK 通过 `*_error` 事件把 `error` 写到 `error` 字段中。
+
+### 时序图（概览）
+
+```mermaid
+sequenceDiagram
+  participant Hub as Plugin Hub
+  participant Phoenix as Phoenix Channel
+  participant SDK as Plugin Runtime
+  participant Cred as Credential (OAuth2 callbacks)
+
+  rect rgb(240, 248, 255)
+    Note over Hub,Cred: 构建授权 URL（oauth2_build_authorize_url）
+    Hub->>Phoenix: push "oauth2_build_authorize_url" %{request_id, credential_name, credential, redirect_uri, state, context?}
+    Phoenix-->>SDK: event oauth2_build_authorize_url(payload)
+    SDK->>Cred: oauth2_build_authorize_url(args)
+    Cred-->>SDK: {:ok, %{url}} | {:error, error}
+    alt success
+      SDK->>Phoenix: push "oauth2_build_authorize_url_response" %{request_id, data: %{url}}
+    else error
+      SDK->>Phoenix: push "oauth2_build_authorize_url_error" %{request_id, error}
+    end
+    Phoenix->>Hub: handle_in("oauth2_build_authorize_url_*", payload)
+  end
+
+  rect rgb(248, 255, 240)
+    Note over Hub,Cred: 用 code 换 token（oauth2_get_token）
+    Hub->>Phoenix: push "oauth2_get_token" %{request_id, credential_name, credential?, code, redirect_uri?, context?}
+    Phoenix-->>SDK: event oauth2_get_token(payload)
+    SDK->>Cred: oauth2_get_token(args)
+    Cred-->>SDK: {:ok, %{parameters_patch}} | {:error, error}
+    alt success
+      SDK->>Phoenix: push "oauth2_get_token_response" %{request_id, data: %{parameters_patch}}
+    else error
+      SDK->>Phoenix: push "oauth2_get_token_error" %{request_id, error}
+    end
+    Phoenix->>Hub: handle_in("oauth2_get_token_*", payload)
+  end
+
+  rect rgb(255, 248, 240)
+    Note over Hub,Cred: 刷新 token（oauth2_refresh_token）
+    Hub->>Phoenix: push "oauth2_refresh_token" %{request_id, credential_name, credential, context?}
+    Phoenix-->>SDK: event oauth2_refresh_token(payload)
+    SDK->>Cred: oauth2_refresh_token(args)
+    Cred-->>SDK: {:ok, %{parameters_patch}} | {:error, error}
+    alt success
+      SDK->>Phoenix: push "oauth2_refresh_token_response" %{request_id, data: %{parameters_patch}}
+    else error
+      SDK->>Phoenix: push "oauth2_refresh_token_error" %{request_id, error}
+    end
+    Phoenix->>Hub: handle_in("oauth2_refresh_token_*", payload)
+  end
+```
+
+### 事件与 Payload
+
+#### Hub → Plugin：`oauth2_build_authorize_url`
+
+- **event**: `oauth2_build_authorize_url`
+- **payload**:
+  - `request_id`: string
+  - `credential_name`: string
+  - `credential`: map（当前已保存的凭证参数，可能为空 map）
+  - `redirect_uri`: string（Hub 提供的 OAuth2 回调地址）
+  - `state`: string（Hub 生成的 state，用于防 CSRF，插件应在授权 URL 中原样带上）
+  - `context`: map（可选，与 `invoke_tool`/`credential_auth_spec` 中的 `context` 结构一致）
+
+#### Plugin → Hub：`oauth2_build_authorize_url_response`
+
+- **event**: `oauth2_build_authorize_url_response`
+- **payload**:
+  - `request_id`: string
+  - `data`:
+    - `url`: string（第三方 OAuth2 授权 URL）
+
+#### Plugin → Hub：`oauth2_build_authorize_url_error`
+
+- **event**: `oauth2_build_authorize_url_error`
+- **payload**:
+  - `request_id`: string
+  - `error`: any（推荐为 map，含 `code`/`message` 等字段）
+
+#### Hub → Plugin：`oauth2_get_token`
+
+- **event**: `oauth2_get_token`
+- **payload**:
+  - `request_id`: string
+  - `credential_name`: string
+  - `credential`: map（当前已保存的凭证参数，可选）
+  - `code`: string（OAuth2 授权码）
+  - `redirect_uri`: string（同上，某些提供方会校验）
+  - `context`: map（可选）
+
+#### Plugin → Hub：`oauth2_get_token_response`
+
+- **event**: `oauth2_get_token_response`
+- **payload**:
+  - `request_id`: string
+  - `data`:
+    - `parameters_patch`: map
+      - 用于**patch 当前 credential 参数**，例如：
+        - 写入 `access_token` / `refresh_token`；
+        - 写入其他 provider-specific 字段。
+
+#### Plugin → Hub：`oauth2_get_token_error`
+
+- **event**: `oauth2_get_token_error`
+- **payload**:
+  - `request_id`: string
+  - `error`: any（推荐为 map，含 `code`/`message` 等字段）
+
+#### Hub → Plugin：`oauth2_refresh_token`
+
+- **event**: `oauth2_refresh_token`
+- **payload**:
+  - `request_id`: string
+  - `credential_name`: string
+  - `credential`: map（当前已保存的凭证参数，一般至少包含 `refresh_token`）
+  - `context`: map（可选）
+
+#### Plugin → Hub：`oauth2_refresh_token_response`
+
+- **event**: `oauth2_refresh_token_response`
+- **payload**:
+  - `request_id`: string
+  - `data`:
+    - `parameters_patch`: map（与 `oauth2_get_token_response` 中语义相同）
+
+#### Plugin → Hub：`oauth2_refresh_token_error`
+
+- **event**: `oauth2_refresh_token_error`
+- **payload**:
+  - `request_id`: string
+  - `error`: any
+
+---
+
 ## Hub call 流程（插件主动调用 Hub 能力）
 
 Hub call 是从 **插件运行时 → Hub** 的「RPC 风格」调用，比如获取文件 URL（`get_file_url`）等。  
