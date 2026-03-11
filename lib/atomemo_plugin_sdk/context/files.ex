@@ -148,7 +148,7 @@ defmodule AtomemoPluginSdk.Context.Files do
   defp do_download(url, opts) do
     timeout = Keyword.get(opts, :receive_timeout, 15_000)
 
-    case Req.get(url, retry: false, receive_timeout: timeout) do
+    case Req.get(url, retry: false, receive_timeout: timeout, raw: true) do
       {:ok, %Req.Response{status: status} = response} when status in 200..299 ->
         {:ok, response}
 
