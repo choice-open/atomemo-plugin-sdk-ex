@@ -11,9 +11,20 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   require Logger
 
-  alias AtomemoPluginSdk.{Context, CredentialDefinition, PluginDefinition, SocketRuntimeConfig}
+  alias AtomemoPluginSdk.{
+    Context,
+    CredentialDefinition,
+    PluginDefinition,
+    SocketRuntimeConfig,
+    ToolDefinition
+  }
+
   alias AtomemoPluginSdk.{SdkError, TransientError}
-  alias AtomemoPluginSdk.SocketRuntime.{CredentialInvoker, ToolInvoker}
+  alias AtomemoPluginSdk.SocketRuntime.CallbackRunner
+
+  @max_tool_timeout_ms 30 * 60 * 1_000
+  @credential_auth_timeout_ms 5_000
+  @oauth2_timeout_ms 60_000
 
   def start_link(opts \\ []) do
     init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])
@@ -157,6 +168,15 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         "credential_auth_spec" ->
           handle_credential_auth_spec(socket, topic, message)
 
+        "oauth2_build_authorize_url" ->
+          handle_oauth2_build_authorize_url(socket, topic, message)
+
+        "oauth2_get_token" ->
+          handle_oauth2_get_token(socket, topic, message)
+
+        "oauth2_refresh_token" ->
+          handle_oauth2_refresh_token(socket, topic, message)
+
         "invoke_tool" ->
           handle_invoke_tool(socket, topic, message)
 
@@ -182,7 +202,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   @impl true
   def handle_info({event, topic, request_id, result}, socket)
-      when event in [:invoke_tool_response, :credential_auth_spec_response] do
+      when event in [
+             :invoke_tool_response,
+             :credential_auth_spec_response,
+             :oauth2_build_authorize_url_response,
+             :oauth2_get_token_response,
+             :oauth2_refresh_token_response
+           ] do
     push(socket, topic, to_string(event), %{
       "request_id" => request_id,
       "data" => result
@@ -193,7 +219,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
   @impl true
   def handle_info({event, topic, request_id, error}, socket)
-      when event in [:invoke_tool_error, :credential_auth_spec_error] do
+      when event in [
+             :invoke_tool_error,
+             :credential_auth_spec_error,
+             :oauth2_build_authorize_url_error,
+             :oauth2_get_token_error,
+             :oauth2_refresh_token_error
+           ] do
     error_payload =
       case error do
         %SdkError{} = err -> SdkError.to_map(err)
@@ -240,33 +272,38 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, tool_name} <- extract_tool_name(message),
          {:ok, tool} <- find_tool_by_name(socket, tool_name) do
+      hub_client = get_hub_client(socket)
       parameters = message["parameters"] || %{}
       credentials = message["credentials"] || %{}
       raw_context = message["context"] || %{}
-      task_supervisor = socket.assigns.task_supervisor
-      hub_client = get_hub_client(socket)
+      context = build_context(raw_context, hub_client, request_id)
 
-      Task.Supervisor.start_child(task_supervisor, fn ->
-        context = %Context{
-          __hub_client__: hub_client,
-          organization_id: raw_context["organization_id"]
-        }
+      args = %{
+        parameters: parameters,
+        credentials: credentials,
+        context: context
+      }
 
-        args = %{
-          request_id: request_id,
-          parameters: parameters,
-          credentials: credentials,
-          context: context
-        }
+      timeout_ms = min(tool.timeout || @max_tool_timeout_ms, @max_tool_timeout_ms)
 
-        case ToolInvoker.invoke(tool, args) do
-          {:ok, result} ->
-            send(hub_client, {:invoke_tool_response, topic, request_id, result})
-
-          {:error, error} ->
-            send(hub_client, {:invoke_tool_error, topic, request_id, error})
-        end
-      end)
+      CallbackRunner.dispatch(
+        tool.invoke,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :invoke_tool_response,
+        error_event: :invoke_tool_error,
+        topic: topic,
+        run_opts: [
+          label: "tool '#{tool.name}' invocation",
+          timeout_ms: timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_tool_invoke,
+              "Tool '#{tool.name}' must have invoke function with 1 argument"
+            )
+        ]
+      )
 
       socket
     else
@@ -278,6 +315,15 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
 
         socket
     end
+  end
+
+  defp build_context(raw_context, hub_client, request_id)
+       when is_map(raw_context) and is_binary(request_id) do
+    %Context{
+      __hub_client__: hub_client,
+      organization_id: raw_context["organization_id"],
+      request_id: request_id
+    }
   end
 
   defp get_hub_client(socket) do
@@ -346,23 +392,171 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
          {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
-      task_supervisor = socket.assigns.task_supervisor
       hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
 
-      Task.Supervisor.start_child(task_supervisor, fn ->
-        case CredentialInvoker.authenticate(cred_def, message) do
-          {:ok, spec} ->
-            send(hub_client, {:credential_auth_spec_response, topic, request_id, spec})
+      args = %{
+        credential: message["credential"] || %{},
+        extra: message["extra"] || %{},
+        context: context
+      }
 
-          {:error, error} ->
-            send(hub_client, {:credential_auth_spec_error, topic, request_id, error})
-        end
-      end)
+      CallbackRunner.dispatch(
+        cred_def.authenticate,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :credential_auth_spec_response,
+        error_event: :credential_auth_spec_error,
+        topic: topic,
+        run_opts: [
+          label: "credential '#{cred_def.name}' authentication",
+          timeout_ms: @credential_auth_timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_credential_authenticate,
+              "authenticate must be a function with arity 1"
+            )
+        ]
+      )
 
       socket
     else
       {:error, %SdkError{} = err} ->
         push(socket, topic, "credential_auth_spec_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
+  defp handle_oauth2_build_authorize_url(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, credential_name} <- extract_credential_name(message),
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        credential: message["credential"] || %{},
+        redirect_uri: message["redirect_uri"],
+        state: message["state"],
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        cred_def.oauth2_build_authorize_url,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :oauth2_build_authorize_url_response,
+        error_event: :oauth2_build_authorize_url_error,
+        topic: topic,
+        run_opts: [
+          label: "credential '#{cred_def.name}' oauth2_build_authorize_url",
+          timeout_ms: @oauth2_timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_callback,
+              "oauth2_build_authorize_url must be a function with arity 1"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "oauth2_build_authorize_url_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
+  defp handle_oauth2_get_token(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, credential_name} <- extract_credential_name(message),
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        credential: message["credential"] || %{},
+        code: message["code"],
+        redirect_uri: message["redirect_uri"],
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        cred_def.oauth2_get_token,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :oauth2_get_token_response,
+        error_event: :oauth2_get_token_error,
+        topic: topic,
+        run_opts: [
+          label: "credential '#{cred_def.name}' oauth2_get_token",
+          timeout_ms: @oauth2_timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_callback,
+              "oauth2_get_token must be a function with arity 1"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "oauth2_get_token_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
+  defp handle_oauth2_refresh_token(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, credential_name} <- extract_credential_name(message),
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        credential: message["credential"] || %{},
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        cred_def.oauth2_refresh_token,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :oauth2_refresh_token_response,
+        error_event: :oauth2_refresh_token_error,
+        topic: topic,
+        run_opts: [
+          label: "credential '#{cred_def.name}' oauth2_refresh_token",
+          timeout_ms: @oauth2_timeout_ms,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_callback,
+              "oauth2_refresh_token must be a function with arity 1"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "oauth2_refresh_token_error", %{
           "request_id" => message["request_id"],
           "error" => SdkError.to_map(err)
         })
@@ -447,7 +641,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp find_tool(tools, tool_name) when is_binary(tool_name) do
     case Enum.find(tools, fn tool -> tool.name == tool_name end) do
       nil -> {:error, "Tool '#{tool_name}' not found"}
-      tool -> {:ok, tool}
+      %ToolDefinition{} = tool -> {:ok, tool}
     end
   end
 
