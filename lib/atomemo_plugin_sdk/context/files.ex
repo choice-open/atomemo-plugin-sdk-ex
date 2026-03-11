@@ -94,12 +94,11 @@ defmodule AtomemoPluginSdk.Context.Files do
     requester = Keyword.get(opts, :requester, &do_upload/3)
     content = file_ref.content || ""
 
-    mime_type =
-      file_ref.mime_type || MIME.type(file_ref.extension || "") || "application/octet-stream"
+    mime_type = file_ref.mime_type || "application/octet-stream"
 
     upload_payload =
       %{
-        "mime_type" => mime_type,
+        "extension" => file_ref.extension || "",
         "key_prefix" => opts[:key_prefix]
       }
 
