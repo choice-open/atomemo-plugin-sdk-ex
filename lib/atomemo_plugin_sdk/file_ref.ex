@@ -1,4 +1,7 @@
 defmodule AtomemoPluginSdk.FileRef do
+  use Ecto.Schema
+  import Ecto.Changeset
+
   @moduledoc """
   Runtime file reference struct, shared by Hub and SDK.
 
@@ -6,8 +9,6 @@ defmodule AtomemoPluginSdk.FileRef do
   - `content`: raw binary; when `source` is `:mem` this holds the file bytes
   - JSON encoding adds `__type__: "file_ref"` and base64-encodes `content`
   """
-
-  defstruct [:source, :filename, :extension, :mime_type, :size, :res_key, :remote_url, :content]
 
   @type t :: %__MODULE__{
           source: :oss | :mem,
@@ -19,6 +20,40 @@ defmodule AtomemoPluginSdk.FileRef do
           remote_url: String.t() | nil,
           content: binary() | nil
         }
+
+  @field_specs [
+    {:source, Ecto.Enum, [values: [:oss, :mem]]},
+    {:filename, :string, []},
+    {:extension, :string, []},
+    {:mime_type, :string, []},
+    {:size, :integer, []},
+    {:res_key, :string, []},
+    {:remote_url, :string, []},
+    {:content, :binary, []}
+  ]
+
+  @fields Enum.map(@field_specs, &elem(&1, 0))
+
+  @primary_key false
+  embedded_schema do
+    for {name, type, opts} <- @field_specs do
+      field(name, type, opts)
+    end
+  end
+
+  def hydrate_changeset(file_ref \\ %__MODULE__{}, attrs) do
+    file_ref
+    |> cast(attrs, @fields)
+    |> validate_required([:source])
+    |> decode_content_if_needed()
+  end
+
+  defp decode_content_if_needed(chset) do
+    case get_change(chset, :content) do
+      nil -> chset
+      content -> put_change(chset, :content, Base.decode64!(content))
+    end
+  end
 
   @doc """
   Builds a FileRef struct from a map (e.g. from JSON with string keys).
