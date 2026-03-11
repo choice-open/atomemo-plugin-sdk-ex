@@ -48,7 +48,9 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
       assert config.version_slug == "demo_plugin__release__1.0.0"
       assert config.model == "gpt-4.1"
       assert config.credential_instance_id == "cred_123"
-      assert %LLMConfig.ModelParams{structured_outputs: true, temperature: 0.7} = config.model_params
+
+      assert %LLMConfig.ModelParams{structured_outputs: true, temperature: 0.7} =
+               config.model_params
     end
 
     test "returns changeset errors for invalid attrs" do
