@@ -22,8 +22,6 @@ defmodule AtomemoPluginSdk.LLMConfig do
   ]
 
   @primary_key false
-  @derive JSON.Encoder
-  @derive Jason.Encoder
   embedded_schema do
     for {name, type, opts} <- @field_specs do
       field(name, type, opts)
@@ -39,6 +37,10 @@ defmodule AtomemoPluginSdk.LLMConfig do
     |> Ecto.Changeset.validate_required(@required_fields)
     |> Ecto.Changeset.cast_embed(:model_params)
     |> Ecto.Changeset.validate_required([:model_params])
+  end
+
+  def hydrate_changeset(llm_config \\ %__MODULE__{}, attrs) do
+    changeset(llm_config, attrs)
   end
 
   @spec new(%{optional(String.t()) => any()} | %{optional(atom()) => any}) ::
@@ -107,5 +109,14 @@ defmodule AtomemoPluginSdk.LLMConfig do
       |> changeset(attrs)
       |> Ecto.Changeset.apply_action!(:insert)
     end
+  end
+end
+
+defimpl JSON.Encoder, for: AtomemoPluginSdk.LLMConfig do
+  def encode(%@for{} = llm_config, _encoder) do
+    llm_config
+    |> Map.from_struct()
+    |> Map.put_new(:__type__, "llm_config")
+    |> JSON.encode_to_iodata!()
   end
 end

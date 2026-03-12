@@ -14,6 +14,32 @@ defmodule AtomemoPluginSdk.FileRefTest do
     "content" => Base.encode64("hello")
   }
 
+  describe "hydrate_changeset/2" do
+    test "casts all fields" do
+      changeset = FileRef.hydrate_changeset(%FileRef{}, @valid_attrs)
+
+      assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :source) == :oss
+      assert Ecto.Changeset.get_field(changeset, :filename) == "test.txt"
+      assert Ecto.Changeset.get_field(changeset, :extension) == "txt"
+      assert Ecto.Changeset.get_field(changeset, :mime_type) == "text/plain"
+      assert Ecto.Changeset.get_field(changeset, :size) == 5
+      assert Ecto.Changeset.get_field(changeset, :res_key) == "res_123"
+      assert Ecto.Changeset.get_field(changeset, :remote_url) == "https://example.com/test.txt"
+      assert Ecto.Changeset.get_field(changeset, :content) == "hello"
+    end
+
+    test "validates required source" do
+      changeset =
+        FileRef.hydrate_changeset(%FileRef{}, %{
+          "size" => -1
+        })
+
+      refute changeset.valid?
+      assert "can't be blank" in errors_on(changeset).source
+    end
+  end
+
   describe "new/1" do
     test "builds struct from valid attrs" do
       assert {:ok, %FileRef{} = ref} = FileRef.new(@valid_attrs)
@@ -146,5 +172,13 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert decoded["remote_url"] == "https://example.com/file.bin"
       assert decoded["content"] == Base.encode64("bin")
     end
+  end
+
+  defp errors_on(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
+      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
+        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+      end)
+    end)
   end
 end

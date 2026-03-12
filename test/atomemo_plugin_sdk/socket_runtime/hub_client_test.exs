@@ -374,6 +374,149 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
         _
       )
     end
+
+    test "hydrates nested SDK structs before invoking the tool callback" do
+      defmodule HydratedToolPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "hydrated_tool_plugin",
+            display_name: %{"en_US" => "Hydrated Tool Plugin"},
+            description: %{"en_US" => "Plugin that expects hydrated structs"},
+            icon: "🔧",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            tools: [
+              %{
+                name: "hydrated_tool",
+                display_name: %{"en_US" => "Hydrated Tool"},
+                description: %{"en_US" => "Tool for hydration"},
+                icon: "🔧",
+                parameters: [],
+                invoke: fn args ->
+                  file_ref = args.parameters["file"]
+                  llm_config = args.parameters["llm_config"]
+                  nested_file_ref = args.credentials["nested"]["file"]
+
+                  {:ok,
+                   %{
+                     "file_ref?" => match?(%AtomemoPluginSdk.FileRef{}, file_ref),
+                     "llm_config?" => match?(%AtomemoPluginSdk.LLMConfig{}, llm_config),
+                     "nested_file_ref?" => match?(%AtomemoPluginSdk.FileRef{}, nested_file_ref),
+                     "file_source" => Atom.to_string(file_ref.source),
+                     "file_content" => file_ref.content,
+                     "model" => llm_config.model,
+                     "structured_outputs" => llm_config.model_params.structured_outputs
+                   }}
+                end
+              }
+            ]
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: HydratedToolPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:hydrated_tool_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:hydrated_tool_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:hydrated_tool_plugin", "invoke_tool", %{
+        "request_id" => "req_hydrated_tool",
+        "tool_name" => "hydrated_tool",
+        "parameters" => %{
+          "file" => %{
+            "__type__" => "file_ref",
+            "source" => "mem",
+            "filename" => "hello.txt",
+            "content" => Base.encode64("hello")
+          },
+          "llm_config" => %{
+            "__type__" => "llm_config",
+            "version_slug" => "demo_plugin__release__1.0.0",
+            "model" => "gpt-4.1",
+            "model_params" => %{"structured_outputs" => true}
+          }
+        },
+        "credentials" => %{
+          "nested" => %{
+            "file" => %{
+              "__type__" => "file_ref",
+              "source" => "oss",
+              "res_key" => "docs/manual.pdf"
+            }
+          }
+        },
+        "context" => %{"organization_id" => "org_789"}
+      })
+
+      assert_push(
+        "debug_plugin:hydrated_tool_plugin",
+        "invoke_tool_response",
+        %{
+          "request_id" => "req_hydrated_tool",
+          "data" => %{
+            "file_ref?" => true,
+            "llm_config?" => true,
+            "nested_file_ref?" => true,
+            "file_source" => "mem",
+            "file_content" => "hello",
+            "model" => "gpt-4.1",
+            "structured_outputs" => true
+          }
+        },
+        _
+      )
+    end
+
+    test "returns invoke_tool_error when parameter hydration fails" do
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: TestPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:test_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:test_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:test_plugin", "invoke_tool", %{
+        "request_id" => "req_invalid_hydration",
+        "tool_name" => "test_tool",
+        "parameters" => %{
+          "input" => %{
+            "__type__" => "file_ref",
+            "filename" => "missing-source.txt"
+          }
+        },
+        "context" => %{"organization_id" => "org_123"}
+      })
+
+      assert_push("debug_plugin:test_plugin", "invoke_tool_error", payload, _)
+
+      assert payload["request_id"] == "req_invalid_hydration"
+      assert payload["error"]["code"] == "sdk:invalid_parameter"
+
+      assert payload["error"]["message"] =~
+               "Failed to hydrate parameter: could not perform insert because changeset is invalid"
+    end
   end
 
   describe "credential_auth_spec" do
