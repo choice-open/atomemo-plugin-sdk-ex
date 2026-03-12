@@ -14,6 +14,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   alias AtomemoPluginSdk.{
     Context,
     CredentialDefinition,
+    ParameterHydrator,
     PluginDefinition,
     SocketRuntimeConfig,
     ToolDefinition
@@ -271,10 +272,10 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp handle_invoke_tool(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, tool_name} <- extract_tool_name(message),
-         {:ok, tool} <- find_tool_by_name(socket, tool_name) do
+         {:ok, tool} <- find_tool_by_name(socket, tool_name),
+         {:ok, parameters} <- ParameterHydrator.call(message["parameters"] || %{}),
+         {:ok, credentials} <- ParameterHydrator.call(message["credentials"] || %{}) do
       hub_client = get_hub_client(socket)
-      parameters = message["parameters"] || %{}
-      credentials = message["credentials"] || %{}
       raw_context = message["context"] || %{}
       context = build_context(raw_context, hub_client, request_id)
 
@@ -391,12 +392,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp handle_credential_auth_spec(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
-         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name),
+         {:ok, credential} <- ParameterHydrator.call(message["credential"] || %{}) do
       hub_client = get_hub_client(socket)
       context = build_context(message["context"] || %{}, hub_client, request_id)
 
       args = %{
-        credential: message["credential"] || %{},
+        credential: credential,
         extra: message["extra"] || %{},
         context: context
       }
@@ -435,12 +437,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp handle_oauth2_build_authorize_url(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
-         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name),
+         {:ok, credential} <- ParameterHydrator.call(message["credential"] || %{}) do
       hub_client = get_hub_client(socket)
       context = build_context(message["context"] || %{}, hub_client, request_id)
 
       args = %{
-        credential: message["credential"] || %{},
+        credential: credential,
         redirect_uri: message["redirect_uri"],
         state: message["state"],
         context: context
@@ -480,12 +483,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp handle_oauth2_get_token(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
-         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name),
+         {:ok, credential} <- ParameterHydrator.call(message["credential"] || %{}) do
       hub_client = get_hub_client(socket)
       context = build_context(message["context"] || %{}, hub_client, request_id)
 
       args = %{
-        credential: message["credential"] || %{},
+        credential: credential,
         code: message["code"],
         redirect_uri: message["redirect_uri"],
         context: context
@@ -525,12 +529,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   defp handle_oauth2_refresh_token(socket, topic, message) do
     with {:ok, request_id} <- extract_request_id(message),
          {:ok, credential_name} <- extract_credential_name(message),
-         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name) do
+         {:ok, cred_def} <- find_credential_for_auth(socket, credential_name),
+         {:ok, credential} <- ParameterHydrator.call(message["credential"] || %{}) do
       hub_client = get_hub_client(socket)
       context = build_context(message["context"] || %{}, hub_client, request_id)
 
       args = %{
-        credential: message["credential"] || %{},
+        credential: credential,
         context: context
       }
 
