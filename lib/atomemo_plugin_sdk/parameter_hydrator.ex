@@ -11,7 +11,8 @@ defmodule AtomemoPluginSdk.ParameterHydrator do
 
   @known_structs %{
     "file_ref" => AtomemoPluginSdk.FileRef,
-    "llm_config" => AtomemoPluginSdk.LLMConfig
+    "llm_config" => AtomemoPluginSdk.LLMConfig,
+    "resource_locator" => AtomemoPluginSdk.ResourceLocator
   }
   @known_types Map.keys(@known_structs)
 
