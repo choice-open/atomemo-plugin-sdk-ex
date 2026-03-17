@@ -17,6 +17,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
       field :constant, JSONValue
       field :default, JSONValue
       field :enum, {:array, JSONValue}
+      field :depends_on, {:array, :string}
       field :ai, :map
       field :ui, :map
     end
@@ -40,6 +41,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
       :constant,
       :default,
       :enum,
+      :depends_on,
       :ai,
       :ui
     ])
