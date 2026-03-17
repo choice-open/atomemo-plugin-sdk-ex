@@ -87,6 +87,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.CallbackRunner do
       {:ok, result} when is_map(result) ->
         {:ok, result}
 
+      # Deprecated 等待全部插件统一后移除
       {:ok, message} when is_binary(message) ->
         {:ok, %{"message" => message}}
 
@@ -103,6 +104,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.CallbackRunner do
       {:error, error} when is_non_struct_map(error) ->
         {:error, error}
 
+      # Deprecated 等待全部插件统一后移除
       {:error, message} when is_binary(message) ->
         {:error, %{"message" => message}}
 
