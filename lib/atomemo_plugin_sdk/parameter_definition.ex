@@ -17,6 +17,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           | AtomemoPluginSdk.ParameterDefinition.EncryptedString.t()
           | AtomemoPluginSdk.ParameterDefinition.FileRef.t()
           | AtomemoPluginSdk.ParameterDefinition.ResourceLocator.t()
+          | AtomemoPluginSdk.ParameterDefinition.ResourceMapper.t()
 
   defmacro __using__(_opts) do
     quote do
@@ -41,7 +42,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
           encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
           file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef,
-          resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator
+          resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator,
+          resource_mapper: AtomemoPluginSdk.ParameterDefinition.ResourceMapper
         ]
     end
   end
@@ -62,7 +64,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
           encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
           file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef,
-          resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator
+          resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator,
+          resource_mapper: AtomemoPluginSdk.ParameterDefinition.ResourceMapper
         ]
     end
   end
