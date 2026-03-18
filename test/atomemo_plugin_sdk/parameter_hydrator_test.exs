@@ -1,7 +1,7 @@
 defmodule AtomemoPluginSdk.ParameterHydratorTest do
   use ExUnit.Case, async: true
 
-  alias AtomemoPluginSdk.{ParameterHydrator, FileRef, LLMConfig, ResourceLocator}
+  alias AtomemoPluginSdk.{ParameterHydrator, FileRef, LLMConfig, ResourceLocator, ResourceMapper}
 
   test "hydrates nested runtime structs in maps and lists" do
     raw = %{
@@ -16,6 +16,11 @@ defmodule AtomemoPluginSdk.ParameterHydratorTest do
         "mode_name" => "list",
         "value" => "res_123",
         "cached_result_label" => "My Resource"
+      },
+      "mapping" => %{
+        "__type__" => "resource_mapper",
+        "mapping_mode" => "manual",
+        "value" => %{"field_a" => "col_1"}
       },
       "configs" => [
         %{
@@ -39,6 +44,11 @@ defmodule AtomemoPluginSdk.ParameterHydratorTest do
              cached_result_label: "My Resource"
            } =
              hydrated["resource"]
+
+    assert %ResourceMapper{
+             mapping_mode: :manual,
+             value: %{"field_a" => "col_1"}
+           } = hydrated["mapping"]
 
     assert [
              %LLMConfig{
