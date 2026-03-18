@@ -20,6 +20,8 @@ defmodule AtomemoPluginSdk.ToolDefinitionTest do
       assert tool.name == "say_hello"
       assert tool.display_name == %{"en_US" => "Say Hello"}
       assert tool.description == %{"en_US" => "Says hello to the user"}
+      assert tool.locator_list == %{}
+      assert tool.resource_mapping == %{}
     end
 
     test "returns error when name is missing" do
