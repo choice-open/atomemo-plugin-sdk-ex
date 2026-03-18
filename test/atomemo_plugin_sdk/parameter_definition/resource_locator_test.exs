@@ -208,7 +208,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocatorTest do
       assert %{parameters: [%{modes: [%{search_list_method: _}]}]} = errors_on(changeset)
     end
 
-    test "rejects list mode without display_name" do
+    test "allows list mode without display_name" do
       attrs = %{
         parameters: [
           %{
@@ -226,11 +226,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocatorTest do
 
       changeset = TestContainer.changeset(%TestContainer{}, attrs)
 
-      refute changeset.valid?
-      assert %{parameters: [%{modes: [%{display_name: _}]}]} = errors_on(changeset)
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      [%PDResourceLocator{} = param] = container.parameters
+      [%PDResourceLocator.ListMode{} = mode] = param.modes
+      assert mode.display_name == nil
     end
 
-    test "rejects url mode without display_name" do
+    test "allows url mode without display_name" do
       attrs = %{
         parameters: [
           %{
@@ -247,11 +250,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocatorTest do
 
       changeset = TestContainer.changeset(%TestContainer{}, attrs)
 
-      refute changeset.valid?
-      assert %{parameters: [%{modes: [%{display_name: _}]}]} = errors_on(changeset)
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      [%PDResourceLocator{} = param] = container.parameters
+      [%PDResourceLocator.UrlMode{} = mode] = param.modes
+      assert mode.display_name == nil
     end
 
-    test "rejects id mode without display_name" do
+    test "allows id mode without display_name" do
       attrs = %{
         parameters: [
           %{
@@ -268,8 +274,11 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocatorTest do
 
       changeset = TestContainer.changeset(%TestContainer{}, attrs)
 
-      refute changeset.valid?
-      assert %{parameters: [%{modes: [%{display_name: _}]}]} = errors_on(changeset)
+      assert changeset.valid?
+      assert {:ok, container} = apply_action(changeset, :insert)
+      [%PDResourceLocator{} = param] = container.parameters
+      [%PDResourceLocator.IdMode{} = mode] = param.modes
+      assert mode.display_name == nil
     end
   end
 end

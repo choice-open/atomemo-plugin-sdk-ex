@@ -17,7 +17,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator.ListMode do
 
   @type t() :: %__MODULE__{
           type: String.t(),
-          display_name: I18nEntry.t(),
+          display_name: I18nEntry.t() | nil,
           placeholder: I18nEntry.t() | nil,
           search_list_method: String.t(),
           searchable: boolean() | nil
@@ -26,7 +26,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator.ListMode do
   def changeset(struct \\ %__MODULE__{}, attrs) do
     struct
     |> cast(attrs, [:type, :display_name, :placeholder, :search_list_method, :searchable])
-    |> validate_required([:type, :display_name, :search_list_method])
+    |> validate_required([:type, :search_list_method])
   end
 end
 
@@ -48,7 +48,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator.UrlMode do
 
   @type t() :: %__MODULE__{
           type: String.t(),
-          display_name: I18nEntry.t(),
+          display_name: I18nEntry.t() | nil,
           placeholder: I18nEntry.t() | nil,
           extract_value: map() | nil
         }
@@ -56,7 +56,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator.UrlMode do
   def changeset(struct \\ %__MODULE__{}, attrs) do
     struct
     |> cast(attrs, [:type, :display_name, :placeholder, :extract_value])
-    |> validate_required([:type, :display_name])
+    |> validate_required([:type])
   end
 end
 
@@ -77,14 +77,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator.IdMode do
 
   @type t() :: %__MODULE__{
           type: String.t(),
-          display_name: I18nEntry.t(),
+          display_name: I18nEntry.t() | nil,
           placeholder: I18nEntry.t() | nil
         }
 
   def changeset(struct \\ %__MODULE__{}, attrs) do
     struct
     |> cast(attrs, [:type, :display_name, :placeholder])
-    |> validate_required([:type, :display_name])
+    |> validate_required([:type])
   end
 end
 
