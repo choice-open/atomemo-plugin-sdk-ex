@@ -8,7 +8,8 @@ defmodule AtomemoPluginSdk.MixProject do
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      deps: deps(),
+      aliases: aliases()
     ]
   end
 
@@ -30,6 +31,22 @@ defmodule AtomemoPluginSdk.MixProject do
       {:polymorphic_embed, "~> 5.0"},
       {:slipstream, "~> 1.2"},
       {:req, "~> 0.5"}
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [check: :test]
+    ]
+  end
+
+  defp aliases do
+    [
+      check: [
+        "format --check-formatted",
+        "compile --warnings-as-errors",
+        "test"
+      ]
     ]
   end
 end
