@@ -30,7 +30,9 @@ defmodule AtomemoPluginSdk.JSONValue do
 
   use Ecto.Type
 
-  @type t() :: String.t() | number() | boolean() | map() | list() | nil
+  @type t() :: String.t() | number() | boolean() | object() | array() | nil
+  @type object() :: %{optional(String.t()) => t()}
+  @type array() :: list(t())
 
   def type, do: :map
 
