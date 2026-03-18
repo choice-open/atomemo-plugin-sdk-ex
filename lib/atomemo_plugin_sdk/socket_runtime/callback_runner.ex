@@ -84,6 +84,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.CallbackRunner do
       end
 
     case result do
+      :ok ->
+        {:ok, %{}}
+
       {:ok, result} when is_map(result) ->
         {:ok, result}
 
