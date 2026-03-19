@@ -53,14 +53,27 @@ defmodule AtomemoPluginSdk.ResourceLocator do
       {:error, message} -> raise ArgumentError, "Invalid ResourceLocator: #{message}"
     end
   end
+
+  @doc """
+  Returns a map suitable for JSON/DB serialization (string keys, mode_name as string).
+  Used by JSON.Encoder and TypedParameters.
+  """
+  @spec to_serializable_map(t()) :: map()
+  def to_serializable_map(%__MODULE__{} = rl) do
+    %{
+      "__type__" => "resource_locator",
+      "mode_name" => Atom.to_string(rl.mode_name),
+      "value" => rl.value,
+      "cached_result_label" => rl.cached_result_label,
+      "cached_result_url" => rl.cached_result_url
+    }
+  end
 end
 
 defimpl JSON.Encoder, for: AtomemoPluginSdk.ResourceLocator do
-  def encode(%@for{} = resource_locator, _encoder) do
+  def encode(resource_locator, _encoder) do
     resource_locator
-    |> Map.from_struct()
-    |> Map.put(:__type__, "resource_locator")
-    |> Map.put(:mode_name, Atom.to_string(resource_locator.mode_name))
+    |> @for.to_serializable_map()
     |> JSON.encode_to_iodata!()
   end
 end

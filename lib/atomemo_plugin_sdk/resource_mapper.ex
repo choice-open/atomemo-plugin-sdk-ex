@@ -6,6 +6,7 @@ defmodule AtomemoPluginSdk.ResourceMapper do
   - `mapping_mode`: :auto or :manual
   - `value`: when manual, the mapping object (map); nil for auto mode
   """
+  alias AtomemoPluginSdk.JSONValue
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -21,7 +22,7 @@ defmodule AtomemoPluginSdk.ResourceMapper do
 
   @type t() :: %__MODULE__{
           mapping_mode: :auto | :manual,
-          value: map() | nil
+          value: JSONValue.object() | nil
         }
 
   def hydrate_changeset(resource_mapper \\ %__MODULE__{}, attrs) do
@@ -51,14 +52,25 @@ defmodule AtomemoPluginSdk.ResourceMapper do
       {:error, message} -> raise ArgumentError, "Invalid ResourceMapper: #{message}"
     end
   end
+
+  @doc """
+  Returns a map suitable for JSON/DB serialization (string keys, mapping_mode as string).
+  Used by JSON.Encoder and TypedParameters.
+  """
+  @spec to_serializable_map(t()) :: map()
+  def to_serializable_map(%__MODULE__{} = rm) do
+    %{
+      "__type__" => "resource_mapper",
+      "mapping_mode" => Atom.to_string(rm.mapping_mode),
+      "value" => rm.value
+    }
+  end
 end
 
 defimpl JSON.Encoder, for: AtomemoPluginSdk.ResourceMapper do
-  def encode(%@for{} = resource_mapper, _encoder) do
+  def encode(resource_mapper, _encoder) do
     resource_mapper
-    |> Map.from_struct()
-    |> Map.put(:__type__, "resource_mapper")
-    |> Map.put(:mapping_mode, Atom.to_string(resource_mapper.mapping_mode))
+    |> @for.to_serializable_map()
     |> JSON.encode_to_iodata!()
   end
 end
