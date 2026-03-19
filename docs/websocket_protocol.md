@@ -1,7 +1,7 @@
 # Plugin Hub – SDK WebSocket 协议
 
 本文档描述 Plugin Hub 与插件运行时（Elixir / JS SDK）之间的 WebSocket 事件与 payload 结构，供各端实现参考。  
-重点按「业务流程」而不是「方向（Hub ↔ Plugin）」来组织：register plugin、invoke tool、credential auth spec、hub call 等。
+重点按「业务流程」而不是「方向（Hub ↔ Plugin）」来组织：register plugin、invoke tool、locator list、resource mapping、credential auth spec、hub call 等。
 
 ---
 
@@ -158,6 +158,14 @@ sequenceDiagram
 - **payload**: `%{ "request_id" => string, "error" => any }`
 - **reply**: 无（noreply）
 
+#### Plugin → Hub：`unsupported_event`（方法不支持）
+
+当 Hub 发送的 event 当前 SDK 未实现时，插件会发送此事件，与「业务方法失败」区分。（Elixir SDK 已实现 `locator_list` / `resource_mapping` 等；若自行扩展 Hub 事件，需在客户端增加对应处理。）
+
+- **event**: `unsupported_event`
+- **payload**: `%{ "request_id" => string, "event" => string, "error" => %{ "code" => "sdk:method_not_supported", "message" => string } }`
+- **reply**: 无（noreply）
+
 ### Phoenix JS 示例：处理 invoke_tool
 
 ```javascript
@@ -188,6 +196,144 @@ channel.on("invoke_tool", async (payload) => {
   }
 });
 ```
+
+---
+
+## Locator list 流程（设计态 / resource_locator）
+
+### 流程说明
+
+- Hub 在**设计器**场景下请求插件为某个 `resource_locator` 参数拉取可选列表（如表名、目录项等）。
+- Hub 经 Channel 向插件推送 `locator_list`；插件根据 `ToolDefinition` 中该 tool 的 `locator_list[method]` 回调执行。
+- Elixir SDK：`AtomemoPluginSdk.SocketRuntime.HubClient` 收到事件后，对 `parameters`、`credentials` 做与 `invoke_tool` 相同的类型解析（`ParameterHydrator`），再调用回调。
+- 成功：`locator_list_response`；失败：`locator_list_error`。若 `method` 在 `locator_list` map 中不存在，SDK 返回业务错误（等价于方法不支持），**不会**走 `unsupported_event`（该事件用于「连事件处理器都没有」的旧客户端）。
+
+### 插件定义（Elixir）
+
+- 在 tool 上配置 `locator_list: %{ "search_list_method_name" => fn args -> {:ok, %{results: [...], pagination_token: ...}} | {:error, map} end }`。
+- `args` 为单参数 map：`filter`、`pagination_token`、`parameters`、`credentials`（与 `AtomemoPluginSdk.ToolDefinition` 中 `locator_list_fn` 类型一致）。
+
+### 时序图（mermaid）
+
+```mermaid
+sequenceDiagram
+  participant Hub as Plugin Hub
+  participant Phoenix as Phoenix Channel
+  participant SDK as Plugin Runtime (Elixir SDK)
+  participant CB as locator_list[method]
+
+  Hub->>Phoenix: PubSub → Channel: push locator_list payload
+  Phoenix-->>SDK: event locator_list(payload)
+
+  SDK->>SDK: ParameterHydrator(parameters, credentials)
+  SDK->>CB: callback.(%{filter, pagination_token, parameters, credentials})
+  CB-->>SDK: {:ok, %{results, pagination_token}} | {:error, error}
+
+  alt success
+    SDK->>Phoenix: push locator_list_response %{request_id, data: result}
+  else error
+    SDK->>Phoenix: push locator_list_error %{request_id, error}
+  end
+
+  Phoenix->>Hub: handle_in("locator_list_*", payload)
+```
+
+### 事件与 Payload
+
+#### Hub → Plugin：`locator_list`
+
+- **event**: `locator_list`
+- **payload**:
+  - `request_id`: string
+  - `tool_name`: string
+  - `method`: string（与参数定义里 `resource_locator` 的 `search_list_method` 等一致）
+  - `filter`: string | null（搜索关键字，可选）
+  - `pagination_token`: string | null（分页游标，可选）
+  - `parameters`: map（当前已填写的部分工具参数，键为参数名）
+  - `credentials`: map（键为 credential instance id，值为解密后的凭证参数）
+
+#### Plugin → Hub：`locator_list_response`
+
+- **event**: `locator_list_response`
+- **payload**: `%{ "request_id" => string, "data" => map }`
+  - `data` 推荐形状：`results`（`[{label, value, url?}, ...]`）、`pagination_token`（string | null）
+- **reply**: 无（noreply）
+
+#### Plugin → Hub：`locator_list_error`
+
+- **event**: `locator_list_error`
+- **payload**: `%{ "request_id" => string, "error" => any }`
+- **reply**: 无（noreply）
+
+---
+
+## Resource mapping 流程（设计态 / resource_mapper）
+
+### 流程说明
+
+- Hub 在**设计器**场景下请求插件返回某个 `resource_mapper` 参数的**字段 schema**（用于手动映射 UI）。
+- Hub 经 Channel 向插件推送 `resource_mapping`；插件根据该 tool 的 `resource_mapping[method]` 回调执行（`method` 与参数定义里的 `mapping_method` 一致）。
+- Elixir SDK：`HubClient` 对 `parameters`、`credentials` 做 `ParameterHydrator` 解析后调用回调。
+
+### 插件定义（Elixir）
+
+- 在 tool 上配置 `resource_mapping: %{ "mapping_method_name" => fn args -> {:ok, %{fields: [...], empty_fields_notice: ...}} | {:error, map} end }`。
+- `args`：`%{parameters: map(), credentials: map()}`（与 `resource_mapping_fn` 类型一致）。
+
+### 时序图（mermaid）
+
+```mermaid
+sequenceDiagram
+  participant Hub as Plugin Hub
+  participant Phoenix as Phoenix Channel
+  participant SDK as Plugin Runtime (Elixir SDK)
+  participant CB as resource_mapping[method]
+
+  Hub->>Phoenix: PubSub → Channel: push resource_mapping payload
+  Phoenix-->>SDK: event resource_mapping(payload)
+
+  SDK->>SDK: ParameterHydrator(parameters, credentials)
+  SDK->>CB: callback.(%{parameters, credentials})
+  CB-->>SDK: {:ok, %{fields, empty_fields_notice}} | {:error, error}
+
+  alt success
+    SDK->>Phoenix: push resource_mapping_response %{request_id, data: result}
+  else error
+    SDK->>Phoenix: push resource_mapping_error %{request_id, error}
+  end
+
+  Phoenix->>Hub: handle_in("resource_mapping_*", payload)
+```
+
+### 事件与 Payload
+
+#### Hub → Plugin：`resource_mapping`
+
+- **event**: `resource_mapping`
+- **payload**:
+  - `request_id`: string
+  - `tool_name`: string
+  - `method`: string（与 `resource_mapper` 参数的 `mapping_method` 一致）
+  - `parameters`: map
+  - `credentials`: map（同上 locator_list）
+
+#### Plugin → Hub：`resource_mapping_response`
+
+- **event**: `resource_mapping_response`
+- **payload**: `%{ "request_id" => string, "data" => map }`
+  - `data` 推荐含：`fields`（resource mapper schema 字段列表）、`empty_fields_notice`（多语言文案，可选）
+- **reply**: 无（noreply）
+
+#### Plugin → Hub：`resource_mapping_error`
+
+- **event**: `resource_mapping_error`
+- **payload**: `%{ "request_id" => string, "error" => any }`
+- **reply**: 无（noreply）
+
+### HTTP（Hub 设计 API，供参考）
+
+- `POST .../design/locator_list` — body 含 `organization_id`, `version_slug`, `tool_name`, `method`, 及可选 `filter`, `pagination_token`, `parameters`, `credential_instance_ids`。
+- `POST .../design/resource_mapping` — body 含 `organization_id`, `version_slug`, `tool_name`, `method`, 及可选 `parameters`, `credential_instance_ids`。
 
 ---
 
