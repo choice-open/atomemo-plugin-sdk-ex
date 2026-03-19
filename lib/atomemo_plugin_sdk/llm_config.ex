@@ -2,6 +2,7 @@ defmodule AtomemoPluginSdk.LLMConfig do
   use Ecto.Schema
 
   @type t() :: %__MODULE__{
+          plugin_slug: String.t(),
           version_slug: String.t(),
           model: String.t(),
           credential_instance_id: String.t(),
@@ -9,6 +10,7 @@ defmodule AtomemoPluginSdk.LLMConfig do
         }
 
   @field_specs [
+    {:plugin_slug, :string, []},
     {:version_slug, :string, []},
     {:model, :string, []},
     {:credential_instance_id, :string, []}
@@ -17,6 +19,7 @@ defmodule AtomemoPluginSdk.LLMConfig do
   @fields Enum.map(@field_specs, &elem(&1, 0))
 
   @required_fields [
+    :plugin_slug,
     :version_slug,
     :model
   ]

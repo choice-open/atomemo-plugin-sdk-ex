@@ -42,6 +42,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
           encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
           file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef,
+          llm_config: AtomemoPluginSdk.ParameterDefinition.LLMConfig,
           resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator,
           resource_mapper: AtomemoPluginSdk.ParameterDefinition.ResourceMapper
         ]
@@ -64,6 +65,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition do
           credential_id: AtomemoPluginSdk.ParameterDefinition.CredentialId,
           encrypted_string: AtomemoPluginSdk.ParameterDefinition.EncryptedString,
           file_ref: AtomemoPluginSdk.ParameterDefinition.FileRef,
+          llm_config: AtomemoPluginSdk.ParameterDefinition.LLMConfig,
           resource_locator: AtomemoPluginSdk.ParameterDefinition.ResourceLocator,
           resource_mapper: AtomemoPluginSdk.ParameterDefinition.ResourceMapper
         ]
