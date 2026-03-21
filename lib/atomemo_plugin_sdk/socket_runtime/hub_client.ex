@@ -181,6 +181,12 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         "invoke_tool" ->
           handle_invoke_tool(socket, topic, message)
 
+        "locator_list" ->
+          handle_locator_list(socket, topic, message)
+
+        "resource_mapping" ->
+          handle_resource_mapping(socket, topic, message)
+
         "hub_call_response" ->
           handle_hub_call_push_response(socket, message, :ok)
 
@@ -188,12 +194,19 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
           handle_hub_call_push_response(socket, message, :error)
 
         _ ->
-          error = SdkError.new(:invalid_event, "Invalid event: #{event}")
+          error = SdkError.new(:unsupported_event, "Event not supported: #{event}")
+          request_id = message["request_id"]
 
-          push(socket, topic, "invoke_tool_error", %{
-            "request_id" => message["request_id"],
-            "error" => SdkError.to_map(error)
-          })
+          if is_binary(request_id) and request_id != "" do
+            push(socket, topic, "unsupported_event", %{
+              "request_id" => request_id,
+              "error" => SdkError.to_map(error)
+            })
+          else
+            Logger.warning(
+              "[#{inspect(__MODULE__)}] Unsupported event '#{event}' has no request_id, cannot send response"
+            )
+          end
 
           socket
       end
@@ -208,7 +221,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
              :credential_auth_spec_response,
              :oauth2_build_authorize_url_response,
              :oauth2_get_token_response,
-             :oauth2_refresh_token_response
+             :oauth2_refresh_token_response,
+             :locator_list_response,
+             :resource_mapping_response
            ] do
     push(socket, topic, to_string(event), %{
       "request_id" => request_id,
@@ -225,7 +240,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
              :credential_auth_spec_error,
              :oauth2_build_authorize_url_error,
              :oauth2_get_token_error,
-             :oauth2_refresh_token_error
+             :oauth2_refresh_token_error,
+             :locator_list_error,
+             :resource_mapping_error
            ] do
     error_payload =
       case error do
@@ -315,6 +332,140 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         })
 
         socket
+    end
+  end
+
+  defp handle_locator_list(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, tool_name} <- extract_tool_name(message),
+         {:ok, tool} <- find_tool_by_name(socket, tool_name),
+         {:ok, method} <- extract_method(message),
+         {:ok, callback} <- find_locator_list_callback(tool, method),
+         {:ok, parameters} <- ParameterHydrator.call(message["parameters"] || %{}),
+         {:ok, credentials} <- ParameterHydrator.call(message["credentials"] || %{}) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        filter: message["filter"],
+        pagination_token: message["pagination_token"],
+        parameters: parameters,
+        credentials: credentials,
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        callback,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :locator_list_response,
+        error_event: :locator_list_error,
+        topic: topic,
+        run_opts: [
+          label: "locator_list '#{tool.name}'.#{method}",
+          timeout_ms: 15_000,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_locator_list,
+              "Tool '#{tool.name}' locator_list '#{method}' must be a function with 1 argument"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "locator_list_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
+  defp find_locator_list_callback(tool, method) do
+    case Map.get(tool.locator_list || %{}, method) do
+      nil ->
+        {:error, SdkError.new(:method_not_supported, "locator_list.#{method} not supported")}
+
+      callback when is_function(callback, 1) ->
+        {:ok, callback}
+
+      _ ->
+        {:error, SdkError.new(:invalid_locator_list, "locator_list.#{method} is not a function")}
+    end
+  end
+
+  defp handle_resource_mapping(socket, topic, message) do
+    with {:ok, request_id} <- extract_request_id(message),
+         {:ok, tool_name} <- extract_tool_name(message),
+         {:ok, tool} <- find_tool_by_name(socket, tool_name),
+         {:ok, method} <- extract_method(message),
+         {:ok, callback} <- find_resource_mapping_callback(tool, method),
+         {:ok, parameters} <- ParameterHydrator.call(message["parameters"] || %{}),
+         {:ok, credentials} <- ParameterHydrator.call(message["credentials"] || %{}) do
+      hub_client = get_hub_client(socket)
+      context = build_context(message["context"] || %{}, hub_client, request_id)
+
+      args = %{
+        parameters: parameters,
+        credentials: credentials,
+        context: context
+      }
+
+      CallbackRunner.dispatch(
+        callback,
+        args,
+        task_supervisor: socket.assigns.task_supervisor,
+        context: context,
+        ok_event: :resource_mapping_response,
+        error_event: :resource_mapping_error,
+        topic: topic,
+        run_opts: [
+          label: "resource_mapping '#{tool.name}'.#{method}",
+          timeout_ms: 15_000,
+          invalid_callback_error:
+            SdkError.new(
+              :invalid_resource_mapping,
+              "Tool '#{tool.name}' resource_mapping '#{method}' must be a function with 1 argument"
+            )
+        ]
+      )
+
+      socket
+    else
+      {:error, %SdkError{} = err} ->
+        push(socket, topic, "resource_mapping_error", %{
+          "request_id" => message["request_id"],
+          "error" => SdkError.to_map(err)
+        })
+
+        socket
+    end
+  end
+
+  defp extract_method(message) do
+    case message["method"] do
+      nil -> {:error, SdkError.new(:invalid_method, "method is required")}
+      "" -> {:error, SdkError.new(:invalid_method, "method is required")}
+      method when is_binary(method) -> {:ok, method}
+      _ -> {:error, SdkError.new(:invalid_method, "method must be a string")}
+    end
+  end
+
+  defp find_resource_mapping_callback(tool, method) do
+    case Map.get(tool.resource_mapping || %{}, method) do
+      nil ->
+        {:error, SdkError.new(:method_not_supported, "resource_mapping.#{method} not supported")}
+
+      callback when is_function(callback, 1) ->
+        {:ok, callback}
+
+      _ ->
+        {:error,
+         SdkError.new(:invalid_resource_mapping, "resource_mapping.#{method} is not a function")}
     end
   end
 
