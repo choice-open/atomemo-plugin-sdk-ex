@@ -4,6 +4,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
   alias AtomemoPluginSdk.LLMConfig
 
   @valid_attrs %{
+    "plugin_slug" => "demo_plugin",
     "version_slug" => "demo_plugin__release__1.0.0",
     "model" => "gpt-4.1",
     "credential_instance_id" => "cred_123",
@@ -18,6 +19,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
       changeset = LLMConfig.hydrate_changeset(%LLMConfig{}, @valid_attrs)
 
       assert changeset.valid?
+      assert Ecto.Changeset.get_field(changeset, :plugin_slug) == "demo_plugin"
       assert Ecto.Changeset.get_field(changeset, :version_slug) == "demo_plugin__release__1.0.0"
       assert Ecto.Changeset.get_field(changeset, :model) == "gpt-4.1"
       assert Ecto.Changeset.get_field(changeset, :credential_instance_id) == "cred_123"
@@ -28,12 +30,13 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
              } = Ecto.Changeset.get_field(changeset, :model_params)
     end
 
-    test "requires version_slug, model, and model_params" do
+    test "requires plugin_slug, version_slug, model, and model_params" do
       changeset = LLMConfig.hydrate_changeset(%LLMConfig{}, %{})
 
       refute changeset.valid?
 
       assert %{
+               plugin_slug: ["can't be blank"],
                version_slug: ["can't be blank"],
                model: ["can't be blank"],
                model_params: ["can't be blank"]
@@ -45,6 +48,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
     test "builds a struct from valid attrs" do
       assert {:ok, %LLMConfig{} = config} = LLMConfig.new(@valid_attrs)
 
+      assert config.plugin_slug == "demo_plugin"
       assert config.version_slug == "demo_plugin__release__1.0.0"
       assert config.model == "gpt-4.1"
       assert config.credential_instance_id == "cred_123"
@@ -56,8 +60,11 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
     test "returns changeset errors for invalid attrs" do
       assert {:error, changeset} = LLMConfig.new(%{"model" => "gpt-4.1"})
 
-      assert %{version_slug: ["can't be blank"], model_params: ["can't be blank"]} =
-               errors_on(changeset)
+      assert %{
+               plugin_slug: ["can't be blank"],
+               version_slug: ["can't be blank"],
+               model_params: ["can't be blank"]
+             } = errors_on(changeset)
     end
   end
 
@@ -76,6 +83,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
   describe "JSON.Encoder implementation" do
     test "encodes the runtime type marker and nested model params" do
       llm_config = %LLMConfig{
+        plugin_slug: "demo_plugin",
         version_slug: "demo_plugin__release__1.0.0",
         model: "gpt-4.1",
         credential_instance_id: "cred_123",
@@ -93,6 +101,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
       {:ok, decoded} = Jason.decode(json)
 
       assert decoded["__type__"] == "llm_config"
+      assert decoded["plugin_slug"] == "demo_plugin"
       assert decoded["version_slug"] == "demo_plugin__release__1.0.0"
       assert decoded["model"] == "gpt-4.1"
       assert decoded["credential_instance_id"] == "cred_123"

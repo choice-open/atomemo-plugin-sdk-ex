@@ -25,6 +25,7 @@ defmodule AtomemoPluginSdk.ParameterHydratorTest do
       "configs" => [
         %{
           "__type__" => "llm_config",
+          "plugin_slug" => "demo_plugin",
           "version_slug" => "demo_plugin__release__1.0.0",
           "model" => "gpt-4.1",
           "model_params" => %{"structured_outputs" => true}
@@ -52,6 +53,7 @@ defmodule AtomemoPluginSdk.ParameterHydratorTest do
 
     assert [
              %LLMConfig{
+               plugin_slug: "demo_plugin",
                version_slug: "demo_plugin__release__1.0.0",
                model: "gpt-4.1",
                model_params: %LLMConfig.ModelParams{structured_outputs: true}
