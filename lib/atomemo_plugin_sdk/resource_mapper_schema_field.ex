@@ -15,12 +15,14 @@ defmodule AtomemoPluginSdk.ResourceMapperSchemaField do
     field :type, Ecto.Enum, values: [:string, :number, :integer, :boolean, :object, :array]
     field :display_name, I18nEntry
     field :required, :boolean, default: false
+    field :ui, :map
   end
 
   @type t() :: %__MODULE__{
           id: String.t(),
           type: :string | :number | :integer | :boolean | :object | :array,
           display_name: I18nEntry.t() | nil,
-          required: boolean() | nil
+          required: boolean() | nil,
+          ui: map() | nil
         }
 end
