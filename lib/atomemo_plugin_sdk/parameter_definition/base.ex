@@ -23,9 +23,23 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     end
   end
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
+    allow_default = Keyword.get(opts, :allow_default, true)
+
+    case is_boolean(allow_default) do
+      true ->
+        :ok
+
+      false ->
+        raise ArgumentError,
+              "invalid :allow_default option for use #{inspect(__MODULE__)}: " <>
+                "expected boolean, got #{inspect(allow_default)}"
+    end
+
     quote do
       import unquote(__MODULE__)
+
+      def __allow_default__, do: unquote(allow_default)
     end
   end
 

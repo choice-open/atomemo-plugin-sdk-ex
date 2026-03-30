@@ -1,6 +1,6 @@
 defmodule AtomemoPluginSdk.ParameterDefinition.EncryptedString do
   use Ecto.Schema
-  use AtomemoPluginSdk.ParameterDefinition.Base
+  use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
 
   @derive JSON.Encoder
   @primary_key false

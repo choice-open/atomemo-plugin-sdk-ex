@@ -26,6 +26,10 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceMapperTest do
   end
 
   describe "parameters with resource_mapper type" do
+    test "allows default values" do
+      assert PDResourceMapper.__allow_default__() == true
+    end
+
     test "can create container with resource_mapper parameter" do
       attrs = %{
         parameters: [
