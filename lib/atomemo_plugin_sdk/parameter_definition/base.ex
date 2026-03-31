@@ -52,15 +52,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
           changeset |> get_field(:default) |> is_nil() ->
             changeset
 
-          not __MODULE__.__allow_default__() ->
-            type = get_field(changeset, :type)
-
-            add_error(
-              changeset,
-              :default,
-              "The default value is not allowed in #{type} parameter definition."
-            )
-
           true ->
             case changeset |> apply_changes() |> PV.validate_default() do
               :ok ->

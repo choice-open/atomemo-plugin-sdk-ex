@@ -24,9 +24,17 @@ defmodule AtomemoPluginSdk.ParameterValidator do
   def validate_default(%module{default: default} = definition) do
     opts = [source: :default_definition, type_module: module]
 
-    case validate(definition, default, opts) do
-      {:ok, _} -> :ok
-      {:error, issues} -> {:error, Error.new(issues, opts)}
+    if module.__allow_default__() do
+      case validate(definition, default, opts) do
+        {:ok, _} -> :ok
+        {:error, issues} -> {:error, Error.new(issues, opts)}
+      end
+    else
+      {:error,
+       Error.new(
+         "The default value is not allowed in #{definition.type} parameter definition.",
+         opts
+       )}
     end
   end
 

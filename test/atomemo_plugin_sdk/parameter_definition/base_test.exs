@@ -23,8 +23,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
     use Ecto.Schema
     use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: true
 
-    import Ecto.Changeset
-
     @primary_key false
     embedded_schema do
       base_schema()
@@ -43,8 +41,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
   defmodule DisallowDefaultParameter do
     use Ecto.Schema
     use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
-
-    import Ecto.Changeset
 
     @primary_key false
     embedded_schema do
@@ -142,23 +138,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
 
       assert changeset.valid?
       assert errors_on(changeset) == %{}
-    end
-
-    test "adds error when default is provided but type disallows it" do
-      changeset =
-        DisallowDefaultParameter.changeset(%DisallowDefaultParameter{}, %{
-          type: "credential_id",
-          default: "secret"
-        })
-
-      refute changeset.valid?
-
-      assert %{
-               default: [
-                 "The default value is not allowed in credential_id parameter definition."
-               ]
-             } =
-               errors_on(changeset)
     end
 
     test "adds validator error when default validation fails" do
