@@ -1,6 +1,7 @@
 defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
   use ExUnit.Case, async: true
 
+  alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.ParameterValidator.Error
 
   test "stores multiple issues" do
@@ -48,6 +49,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
     assert error.source == :runtime_input
     assert error.issues == []
     assert Exception.message(error) == "parameter validation failed"
+  end
+
+  test "builds error from changeset with prefixed path" do
+    issues = %FileRef{} |> FileRef.changeset(%{}) |> Error.issues_from_changeset()
+
+    assert [%{path: [:source], message: "can't be blank"}] = issues
   end
 
   describe "format_path/1" do

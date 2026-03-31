@@ -5,7 +5,7 @@ defmodule AtomemoPluginSdk.ParameterValidator do
   @type source :: :default_definition | :runtime_input
 
   @callback validate(struct(), term(), keyword()) ::
-              {:ok, any()} | {:error, [issue() | String.t()]}
+              {:ok, any()} | {:error, [issue() | String.t()] | Error.t()}
 
   defmacro __using__(_opts) do
     quote do
@@ -27,6 +27,7 @@ defmodule AtomemoPluginSdk.ParameterValidator do
     if module.__allow_default__() do
       case validate(definition, default, opts) do
         {:ok, _} -> :ok
+        {:error, %Error{} = error} -> {:error, error}
         {:error, issues} -> {:error, Error.new(issues, opts)}
       end
     else
