@@ -8,7 +8,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.Error do
           required(:message) => String.t()
         }
 
-  @type source :: :default_definition | :runtime_input
+  @type source :: :input | :plugin
 
   @type t :: %__MODULE__{issues: [issue()], message: binary() | nil, source: source()}
 

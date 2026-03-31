@@ -10,9 +10,9 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
       %{path: ["default", "name"], message: "too short"}
     ]
 
-    error = Error.new(issues, source: :default_definition)
+    error = Error.new(issues, source: :plugin)
 
-    assert error.source == :default_definition
+    assert error.source == :plugin
     assert error.issues == issues
   end
 
@@ -22,14 +22,14 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
       %{path: [:default, "items", 0, "name"], message: "too short"}
     ]
 
-    error = Error.new(issues, source: :default_definition)
+    error = Error.new(issues, source: :plugin)
 
     assert Exception.message(error) ==
              "default: must be a string.\ndefault.items[0].name: too short"
   end
 
   test "formats empty path" do
-    error = Error.new([%{path: [], message: "must be an object."}], source: :runtime_input)
+    error = Error.new([%{path: [], message: "must be an object."}], source: :input)
 
     assert Exception.message(error) == ": must be an object."
   end
@@ -37,16 +37,16 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
   test "accepts a single issue input" do
     issue = %{path: ["default"], message: "must be a string."}
 
-    error = Error.new(issue, source: :runtime_input)
+    error = Error.new(issue, source: :input)
 
-    assert error.source == :runtime_input
+    assert error.source == :input
     assert error.issues == [issue]
   end
 
   test "uses explicit exception message when provided" do
-    error = Error.new("parameter validation failed", source: :runtime_input)
+    error = Error.new("parameter validation failed", source: :input)
 
-    assert error.source == :runtime_input
+    assert error.source == :input
     assert error.issues == []
     assert Exception.message(error) == "parameter validation failed"
   end
@@ -60,7 +60,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
   describe "format_path/1" do
     test "formats atom-only path" do
       error =
-        Error.new([%{path: [:config, :timeout], message: "invalid"}], source: :runtime_input)
+        Error.new([%{path: [:config, :timeout], message: "invalid"}], source: :input)
 
       assert Exception.message(error) == "config.timeout: invalid"
     end
@@ -68,7 +68,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
     test "formats mixed atom and string path" do
       error =
         Error.new([%{path: [:default, "name"], message: "is required"}],
-          source: :default_definition
+          source: :plugin
         )
 
       assert Exception.message(error) == "default.name: is required"
@@ -76,26 +76,26 @@ defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
 
     test "formats path with consecutive array indices" do
       error =
-        Error.new([%{path: [:matrix, 0, 1], message: "out of range"}], source: :runtime_input)
+        Error.new([%{path: [:matrix, 0, 1], message: "out of range"}], source: :input)
 
       assert Exception.message(error) == "matrix[0][1]: out of range"
     end
 
     test "formats path starting with array index" do
-      error = Error.new([%{path: [0, "name"], message: "is required"}], source: :runtime_input)
+      error = Error.new([%{path: [0, "name"], message: "is required"}], source: :input)
 
       assert Exception.message(error) == "[0].name: is required"
     end
 
     test "formats single-segment string path" do
       error =
-        Error.new([%{path: ["username"], message: "too long"}], source: :default_definition)
+        Error.new([%{path: ["username"], message: "too long"}], source: :plugin)
 
       assert Exception.message(error) == "username: too long"
     end
 
     test "formats single-segment atom path" do
-      error = Error.new([%{path: [:age], message: "must be positive"}], source: :runtime_input)
+      error = Error.new([%{path: [:age], message: "must be positive"}], source: :input)
 
       assert Exception.message(error) == "age: must be positive"
     end
