@@ -36,11 +36,77 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
                 "expected boolean, got #{inspect(allow_default)}"
     end
 
+    ensure_validator_module!(__CALLER__)
+
     quote do
       import unquote(__MODULE__)
+      alias AtomemoPluginSdk.ParameterValidator, as: PV
 
       def __allow_default__, do: unquote(allow_default)
+
+      def validate_default_if_needed(changeset) do
+        cond do
+          not changeset.valid? ->
+            changeset
+
+          changeset |> get_field(:default) |> is_nil() ->
+            changeset
+
+          not __MODULE__.__allow_default__() ->
+            type = get_field(changeset, :type)
+
+            add_error(
+              changeset,
+              :default,
+              "The default value is not allowed in #{type} parameter definition."
+            )
+
+          true ->
+            case changeset |> apply_changes() |> PV.validate_default() do
+              :ok ->
+                changeset
+
+              {:error, %PV.Error{} = error} ->
+                add_error(changeset, :default, PV.Error.message(error))
+            end
+        end
+      end
     end
+  end
+
+  defp ensure_validator_module!(env) do
+    definition_module = env.module
+    validator_module = validator_module_for_definition(definition_module)
+
+    case Code.ensure_compiled(validator_module) do
+      {:module, _module} ->
+        if function_exported?(validator_module, :validate, 3) do
+          :ok
+        else
+          raise CompileError,
+            file: env.file,
+            line: env.line,
+            description:
+              "#{inspect(validator_module)} must define validate/3 for #{inspect(definition_module)}"
+        end
+
+      {:error, _reason} ->
+        raise CompileError,
+          file: env.file,
+          line: env.line,
+          description:
+            "missing corresponding validator module #{inspect(validator_module)} for #{inspect(definition_module)}"
+    end
+  end
+
+  defp validator_module_for_definition(definition_module) do
+    definition_module
+    |> Module.split()
+    |> Enum.map(fn
+      "ParameterDefinition" -> "ParameterValidator"
+      segment -> segment
+    end)
+    |> Module.concat()
   end
 
   def cast_and_validate_base_fields(changeset, attrs) do
