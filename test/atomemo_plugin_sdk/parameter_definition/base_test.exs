@@ -1,11 +1,9 @@
 defmodule AtomemoPluginSdk.ParameterValidator.BaseTest.AllowDefaultParameter do
-  def validate(_definition, value, opts) do
-    path = Keyword.fetch!(opts, :path)
-
+  def validate(_definition, value, _opts) do
     if is_binary(value) do
       {:ok, value}
     else
-      {:error, [%{path: path, message: "must be a string."}]}
+      {:error, [%{path: :default, message: "must be a string."}]}
     end
   end
 end
