@@ -24,6 +24,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Number do
     |> cast_and_validate_base_fields(attrs)
     |> cast(attrs, [:maximum, :minimum])
     |> validate_maximum_gte_minimum()
+    |> validate_default_if_needed()
   end
 
   defp validate_maximum_gte_minimum(changeset) do
