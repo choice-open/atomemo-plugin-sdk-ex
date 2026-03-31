@@ -16,5 +16,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.EncryptedString do
   def changeset(changeset, attrs) do
     changeset
     |> cast_and_validate_base_fields(attrs)
+    |> validate_default_if_needed()
   end
 end

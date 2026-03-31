@@ -22,5 +22,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.CredentialId do
     |> cast_and_validate_base_fields(attrs)
     |> cast(attrs, [:credential_name])
     |> validate_required([:credential_name])
+    |> validate_default_if_needed()
   end
 end
