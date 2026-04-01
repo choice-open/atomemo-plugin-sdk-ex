@@ -18,6 +18,8 @@ defmodule AtomemoPluginSdk.ParameterValidator do
       end
 
       defoverridable validate: 3
+
+      defdelegate cast(struct, value, opts), to: AtomemoPluginSdk.ParameterValidator
     end
   end
 
