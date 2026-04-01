@@ -15,21 +15,21 @@ defmodule AtomemoPluginSdk.ParameterValidator.CredentialIdTest do
     test "returns error for invalid UUID string" do
       definition = %PDCredentialId{}
 
-      assert {:error, %{path: [:type], message: "must be a valid UUID"}} =
+      assert {:error, %{path: :type, message: "must be a valid UUID"}} =
                PVCredentialId.validate(definition, "not-a-uuid", [])
     end
 
     test "returns error when value is not a string" do
       definition = %PDCredentialId{}
 
-      assert {:error, %{path: [:type], message: "must be a string representing a UUID"}} =
+      assert {:error, %{path: :type, message: "must be a string representing a UUID"}} =
                PVCredentialId.validate(definition, 123, [])
     end
 
     test "returns error when value is nil" do
       definition = %PDCredentialId{}
 
-      assert {:error, %{path: [:type], message: "must be a string representing a UUID"}} =
+      assert {:error, %{path: :type, message: "must be a string representing a UUID"}} =
                PVCredentialId.validate(definition, nil, [])
     end
   end

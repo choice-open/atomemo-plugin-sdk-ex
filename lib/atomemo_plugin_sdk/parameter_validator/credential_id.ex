@@ -7,11 +7,11 @@ defmodule AtomemoPluginSdk.ParameterValidator.CredentialId do
   def validate(_, value, _opts) when is_binary(value) do
     case Ecto.UUID.cast(value) do
       {:ok, uuid} -> {:ok, uuid}
-      :error -> {:error, %{path: [:type], message: "must be a valid UUID"}}
+      :error -> {:error, %{path: :type, message: "must be a valid UUID"}}
     end
   end
 
   def validate(_, _, _opts) do
-    {:error, %{path: [:type], message: "must be a string representing a UUID"}}
+    {:error, %{path: :type, message: "must be a string representing a UUID"}}
   end
 end
