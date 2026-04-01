@@ -25,6 +25,12 @@ defmodule AtomemoPluginSdk.ParameterValidatorTest do
   end
 
   describe "cast/3" do
+    test "keeps false boolean value instead of treating it as nil" do
+      definition = %PDBoolean{type: "boolean"}
+
+      assert {:ok, false} = ParameterValidator.cast(definition, false)
+    end
+
     test "uses default when input value is nil" do
       definition = %PDString{type: "string", default: "fallback"}
 

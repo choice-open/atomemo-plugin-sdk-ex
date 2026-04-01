@@ -50,10 +50,10 @@ defmodule AtomemoPluginSdk.ParameterValidator do
          value <- use_default_if_needed(definition, value),
          {:ok, value} <- Base.validate(definition, value, opts),
          {:ok, value} <-
-           if(value,
-             do: validator_mod(module).validate(definition, value, opts),
-             else: {:ok, nil}
-           ) do
+            if(is_nil(value),
+              do: {:ok, nil},
+              else: validator_mod(module).validate(definition, value, opts)
+            ) do
       {:ok, value}
     else
       {:error, message} when is_binary(message) ->
