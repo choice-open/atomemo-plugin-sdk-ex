@@ -43,7 +43,8 @@ defmodule AtomemoPluginSdk.ParameterValidator do
   end
 
   def cast(%module{decoder: decoder} = definition, value, opts \\ []) do
-    opts = [source: Keyword.get(opts, :source, :input)]
+    {original_source, others} = Keyword.pop(opts, :source)
+    opts = [{:source, original_source || :input} | others]
 
     with {:ok, value} <- decode_if_needed(decoder, value, opts),
          value <- use_default_if_needed(definition, value),
@@ -55,9 +56,6 @@ defmodule AtomemoPluginSdk.ParameterValidator do
            ) do
       {:ok, value}
     else
-      {:error, %Error{} = error} ->
-        {:error, error}
-
       {:error, message} when is_binary(message) ->
         {:error, Error.new(message, opts)}
 

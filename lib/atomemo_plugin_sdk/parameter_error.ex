@@ -17,7 +17,7 @@ defmodule AtomemoPluginSdk.ParameterError do
 
   def new(issues, opts) when is_list(issues) do
     %__MODULE__{
-      issues: issues,
+      issues: Enum.map(issues, &prepend_prefix(&1, Keyword.get(opts, :prefix))),
       source: Keyword.fetch!(opts, :source)
     }
   end
@@ -47,6 +47,12 @@ defmodule AtomemoPluginSdk.ParameterError do
       "#{format_path(issue.path)}: #{issue.message}"
     end)
     |> Enum.join("\n")
+  end
+
+  defp prepend_prefix(issue, nil), do: issue
+
+  defp prepend_prefix(%{path: path} = issue, prefix) do
+    %{issue | path: [prefix | List.wrap(path)]}
   end
 
   defp format_path(path, acc \\ "")

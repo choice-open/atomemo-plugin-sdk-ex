@@ -57,6 +57,55 @@ defmodule AtomemoPluginSdk.ParameterErrorTest do
     assert [%{path: [:source], message: "can't be blank"}] = issues
   end
 
+  describe "new/2 - prefix" do
+    test "prepends integer prefix to all issues" do
+      issues = [
+        %{path: [:type], message: "must be a string."},
+        %{path: [:min], message: "too short"}
+      ]
+
+      error = Error.new(issues, source: :input, prefix: 2)
+
+      assert [
+               %{path: [2, :type]},
+               %{path: [2, :min]}
+             ] = error.issues
+    end
+
+    test "prepends atom prefix to all issues" do
+      issues = [%{path: [:type], message: "must be a string."}]
+
+      error = Error.new(issues, source: :input, prefix: :items)
+
+      assert [%{path: [:items, :type]}] = error.issues
+    end
+
+    test "wraps atom path in list before prepending" do
+      issue = %{path: :type, message: "must be a string."}
+
+      error = Error.new([issue], source: :input, prefix: 0)
+
+      assert [%{path: [0, :type]}] = error.issues
+    end
+
+    test "does not modify issues when prefix is nil" do
+      issues = [%{path: [:type], message: "must be a string."}]
+
+      error = Error.new(issues, source: :input)
+
+      assert [%{path: [:type]}] = error.issues
+    end
+
+    test "does not modify issues when prefix is not provided" do
+      issues = [%{path: [:type], message: "must be a string."}]
+
+      error_with_nil = Error.new(issues, source: :input, prefix: nil)
+      error_without = Error.new(issues, source: :input)
+
+      assert error_with_nil.issues == error_without.issues
+    end
+  end
+
   describe "format_path/1" do
     test "formats atom-only path" do
       error =

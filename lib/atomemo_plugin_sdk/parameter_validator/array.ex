@@ -30,13 +30,11 @@ defmodule AtomemoPluginSdk.ParameterValidator.Array do
     |> Enum.with_index()
     |> Enum.reverse()
     |> Enum.reduce({[], []}, fn {item, index}, {values, errors} ->
-      case cast(items, item, opts) do
-        {:ok, casted} ->
-          {[casted | values], errors}
+      opts = Keyword.put(opts, :prefix, index)
 
-        {:error, %Error{issues: issues}} ->
-          indexed_issues = Enum.map(issues, &%{&1 | path: [index | List.wrap(&1.path)]})
-          {values, errors ++ indexed_issues}
+      case cast(items, item, opts) do
+        {:ok, casted} -> {[casted | values], errors}
+        {:error, %Error{issues: issues}} -> {values, errors ++ issues}
       end
     end)
     |> case do
