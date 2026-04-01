@@ -34,12 +34,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.Object do
 
       case cast(property, value, opts) do
         {:ok, casted} -> {[{name, casted} | values], errors}
-        {:error, %Error{issues: issues}} -> {values, errors ++ issues}
+        {:error, %Error{issues: issues}} -> {values, [issues | errors]}
       end
     end)
     |> case do
       {values, []} -> {:ok, Map.new(values)}
-      {_values, errors} -> {:error, errors}
+      {_values, errors} -> {:error, errors |> Enum.reverse() |> List.flatten()}
     end
   end
 
@@ -54,12 +54,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.Object do
 
       case cast(additional_properties, value, opts) do
         {:ok, casted} -> {[{name, casted} | values], errors}
-        {:error, %Error{issues: issues}} -> {values, errors ++ issues}
+        {:error, %Error{issues: issues}} -> {values, [issues | errors]}
       end
     end)
     |> case do
       {values, []} -> {:ok, Map.new(values)}
-      {_values, errors} -> {:error, errors}
+      {_values, errors} -> {:error, errors |> Enum.reverse() |> List.flatten()}
     end
   end
 end
