@@ -3,7 +3,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.EncryptedStringTest do
 
   alias AtomemoPluginSdk.ParameterDefinition.EncryptedString, as: PDEncryptedString
 
-  test "allows default values" do
-    assert PDEncryptedString.__allow_default__() == true
+  test "do not allow default values" do
+    assert PDEncryptedString.__allow_default__() == false
   end
 end

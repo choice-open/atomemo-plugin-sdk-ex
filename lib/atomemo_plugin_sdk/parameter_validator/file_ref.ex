@@ -3,7 +3,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRef do
 
   use AtomemoPluginSdk.ParameterValidator
 
-  alias AtomemoPluginSdk.ParameterValidator.Error
+  alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.FileRef
 
   @impl true

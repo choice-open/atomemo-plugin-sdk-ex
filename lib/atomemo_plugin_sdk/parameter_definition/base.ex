@@ -57,8 +57,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
               :ok ->
                 changeset
 
-              {:error, %PV.Error{} = error} ->
-                add_error(changeset, :default, PV.Error.message(error))
+              {:error, %AtomemoPluginSdk.ParameterError{} = error} ->
+                add_error(changeset, :default, AtomemoPluginSdk.ParameterError.message(error))
             end
         end
       end

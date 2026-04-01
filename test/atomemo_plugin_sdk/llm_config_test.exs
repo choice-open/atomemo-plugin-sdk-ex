@@ -74,7 +74,7 @@ defmodule AtomemoPluginSdk.LLMConfigTest do
     end
 
     test "raises on invalid attrs" do
-      assert_raise Ecto.InvalidChangesetError, fn ->
+      assert_raise AtomemoPluginSdk.ParameterError, fn ->
         LLMConfig.new!(%{})
       end
     end

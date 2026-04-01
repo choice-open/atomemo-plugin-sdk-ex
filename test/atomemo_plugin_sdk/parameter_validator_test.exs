@@ -5,7 +5,7 @@ defmodule AtomemoPluginSdk.ParameterValidatorTest do
   alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
   alias AtomemoPluginSdk.ParameterValidator
-  alias AtomemoPluginSdk.ParameterValidator.Error
+  alias AtomemoPluginSdk.ParameterError, as: Error
 
   describe "validate_default/1" do
     test "returns ok for nil default" do
@@ -55,7 +55,7 @@ defmodule AtomemoPluginSdk.ParameterValidatorTest do
       assert {:ok, "not-json"} = ParameterValidator.cast(definition, "not-json", source: :plugin)
     end
 
-    test "normalizes validator map error into ParameterValidator.Error" do
+    test "normalizes validator map error into ParameterError" do
       definition = %PDString{type: "string", min_length: 3}
 
       assert {:error, %Error{source: :input, issues: [%{path: :min, message: message}]}} =
@@ -64,7 +64,7 @@ defmodule AtomemoPluginSdk.ParameterValidatorTest do
       assert message == "should be at least 3 character(s)"
     end
 
-    test "normalizes decoder error into ParameterValidator.Error" do
+    test "normalizes decoder error into ParameterError" do
       definition = %PDString{type: "string", decoder: :json}
 
       assert {:error, %Error{source: :input, issues: [%{path: :decoder, message: message}]}} =

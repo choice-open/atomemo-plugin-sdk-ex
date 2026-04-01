@@ -2,6 +2,8 @@ defmodule AtomemoPluginSdk.FileRef do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias AtomemoPluginSdk.ParameterError, as: Error
+
   @moduledoc """
   Runtime file reference struct, shared by Hub and SDK.
 
@@ -69,7 +71,7 @@ defmodule AtomemoPluginSdk.FileRef do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, message} -> raise ArgumentError, "Invalid FileRef: #{message}"
+      {:error, changeset} -> raise Error.new(changeset, source: :runtime)
     end
   end
 

@@ -10,6 +10,7 @@ defmodule AtomemoPluginSdk.ResourceLocator do
   """
   use Ecto.Schema
   import Ecto.Changeset
+  alias AtomemoPluginSdk.ParameterError, as: Error
 
   @primary_key false
   embedded_schema do
@@ -32,15 +33,11 @@ defmodule AtomemoPluginSdk.ResourceLocator do
     |> validate_required([:mode_name])
   end
 
-  @spec new(map()) :: {:ok, t()} | {:error, String.t()}
+  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def new(attrs) when is_map(attrs) do
-    changeset = hydrate_changeset(%__MODULE__{}, attrs)
-
-    if changeset.valid? do
-      {:ok, apply_changes(changeset)}
-    else
-      [{field, {msg, _opts}} | _] = changeset.errors
-      {:error, "#{field} #{msg}"}
+    case attrs |> hydrate_changeset() |> apply_action(:insert) do
+      {:ok, struct} -> {:ok, struct}
+      {:error, changeset} -> {:error, changeset}
     end
   end
 
@@ -50,7 +47,7 @@ defmodule AtomemoPluginSdk.ResourceLocator do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, message} -> raise ArgumentError, "Invalid ResourceLocator: #{message}"
+      {:error, changeset} -> raise Error.new(changeset, source: :runtime)
     end
   end
 

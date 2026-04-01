@@ -76,7 +76,7 @@ defmodule AtomemoPluginSdk.ResourceLocatorTest do
     end
 
     test "raises on invalid input" do
-      assert_raise ArgumentError, fn ->
+      assert_raise AtomemoPluginSdk.ParameterError, fn ->
         ResourceLocator.new!(%{})
       end
     end

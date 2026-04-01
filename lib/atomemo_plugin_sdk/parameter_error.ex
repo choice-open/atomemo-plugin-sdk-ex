@@ -1,4 +1,4 @@
-defmodule AtomemoPluginSdk.ParameterValidator.Error do
+defmodule AtomemoPluginSdk.ParameterError do
   @moduledoc false
 
   defexception [:issues, :message, :source]
@@ -8,7 +8,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.Error do
           required(:message) => String.t()
         }
 
-  @type source :: :input | :plugin
+  @type source :: :input | :plugin | :runtime
 
   @type t :: %__MODULE__{issues: [issue()], message: binary() | nil, source: source()}
 
@@ -20,6 +20,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.Error do
       issues: issues,
       source: Keyword.fetch!(opts, :source)
     }
+  end
+
+  def new(%Ecto.Changeset{} = changeset, opts) do
+    changeset
+    |> issues_from_changeset()
+    |> new(opts)
   end
 
   def new(issue, opts) when is_map(issue) do

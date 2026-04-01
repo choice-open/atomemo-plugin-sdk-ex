@@ -1,8 +1,8 @@
-defmodule AtomemoPluginSdk.ParameterValidator.ErrorTest do
+defmodule AtomemoPluginSdk.ParameterErrorTest do
   use ExUnit.Case, async: true
 
   alias AtomemoPluginSdk.FileRef
-  alias AtomemoPluginSdk.ParameterValidator.Error
+  alias AtomemoPluginSdk.ParameterError, as: Error
 
   test "stores multiple issues" do
     issues = [

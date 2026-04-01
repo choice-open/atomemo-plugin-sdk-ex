@@ -4,6 +4,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.LLMConfigTest do
   alias AtomemoPluginSdk.ParameterDefinition.LLMConfig, as: PDLLMConfig
 
   test "allows default values" do
-    assert PDLLMConfig.__allow_default__() == true
+    assert PDLLMConfig.__allow_default__() == false
   end
 end

@@ -1,5 +1,5 @@
 defmodule AtomemoPluginSdk.ParameterValidator do
-  alias AtomemoPluginSdk.ParameterValidator.Error
+  alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.ParameterValidator.Decoder
   alias AtomemoPluginSdk.ParameterValidator.Base
 

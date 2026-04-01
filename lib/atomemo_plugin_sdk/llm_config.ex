@@ -1,6 +1,7 @@
 defmodule AtomemoPluginSdk.LLMConfig do
   use Ecto.Schema
   import Ecto.Changeset
+  alias AtomemoPluginSdk.ParameterError, as: Error
 
   @type t() :: %__MODULE__{}
 
@@ -29,7 +30,7 @@ defmodule AtomemoPluginSdk.LLMConfig do
   @spec new(%{optional(String.t()) => any()} | %{optional(atom()) => any}) ::
           {:ok, t()} | {:error, String.t()}
   def new(attrs) do
-    case attrs |> changeset() |> apply_action(:insert) do
+    case %__MODULE__{} |> changeset(attrs) |> apply_action(:insert) do
       {:ok, file_ref} -> {:ok, file_ref}
       {:error, changeset} -> {:error, changeset}
     end
@@ -39,7 +40,7 @@ defmodule AtomemoPluginSdk.LLMConfig do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, message} -> raise ArgumentError, "Invalid LLMConfig: #{message}"
+      {:error, changeset} -> raise Error.new(changeset, source: :runtime)
     end
   end
 
