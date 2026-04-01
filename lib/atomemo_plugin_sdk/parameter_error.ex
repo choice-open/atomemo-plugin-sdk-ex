@@ -4,7 +4,7 @@ defmodule AtomemoPluginSdk.ParameterError do
   defexception [:issues, :message, :source]
 
   @type issue :: %{
-          required(:path) => list(),
+          required(:path) => list() | atom() | binary() | integer(),
           required(:message) => String.t()
         }
 
