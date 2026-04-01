@@ -35,8 +35,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRefTest do
       assert {:error, %{path: :type, message: message}} =
                PVFileRef.validate(definition, file_ref, source: :plugin)
 
-      assert message ==
-               "Invalid default value for file_ref parameter definition: expected mem FileRef struct."
+      assert message == "must be a encoded file ref json payload."
     end
   end
 

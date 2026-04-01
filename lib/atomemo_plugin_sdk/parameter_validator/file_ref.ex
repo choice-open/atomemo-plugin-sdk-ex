@@ -30,12 +30,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRef do
         {:error, changeset} -> {:error, Error.issues_from_changeset(changeset)}
       end
     else
-      {:error,
-       %{
-         path: :type,
-         message:
-           "Invalid default value for file_ref parameter definition: expected mem FileRef struct."
-       }}
+      {:error, %{path: :type, message: "must be a encoded file ref json payload."}}
     end
   end
 
