@@ -11,7 +11,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRefTest do
       definition = %PDFileRef{type: "file_ref", default: file_ref}
 
       assert {:ok, ^file_ref} =
-               PVFileRef.validate(definition, file_ref, source: :default_definition)
+               PVFileRef.validate(definition, file_ref, source: :plugin)
     end
 
     test "rejects oss FileRef struct for default" do
@@ -23,7 +23,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRefTest do
       }
 
       assert {:error, %{path: :source, message: message}} =
-               PVFileRef.validate(definition, file_ref, source: :default_definition)
+               PVFileRef.validate(definition, file_ref, source: :plugin)
 
       assert message =~ "only expected mem FileRef struct"
     end
@@ -33,7 +33,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRefTest do
       definition = %PDFileRef{type: "file_ref", default: file_ref}
 
       assert {:error, %{path: :type, message: message}} =
-               PVFileRef.validate(definition, file_ref, source: :default_definition)
+               PVFileRef.validate(definition, file_ref, source: :plugin)
 
       assert message ==
                "Invalid default value for file_ref parameter definition: expected mem FileRef struct."
@@ -51,20 +51,30 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRefTest do
     end
 
     test "returns changeset-based error for invalid websocket payload" do
-      opts = [source: :runtime_input]
+      opts = [source: :input]
 
       assert {:error, [issue]} =
-               PVFileRef.validate(%PDFileRef{type: "file_ref"}, %{}, opts)
+               PVFileRef.validate(%PDFileRef{type: "file_ref"}, %{"__type__" => "file_ref"}, opts)
 
       assert issue.path == [:source]
       assert issue.message == "can't be blank"
     end
 
     test "returns type error when runtime value is not a map/object" do
-      opts = [source: :runtime_input, path: ["file"]]
+      opts = [source: :input]
 
       assert {:error, %{path: :type, message: message}} =
                PVFileRef.validate(%PDFileRef{type: "file_ref"}, 1, opts)
+
+      assert message =~ "must be a encoded file ref json payload"
+    end
+
+    test "returns type error when runtime value contains no __type__" do
+      opts = [source: :input]
+      file_ref = %{"source" => "oss", "res_key" => "bucket/a.txt"}
+
+      assert {:error, %{path: :type, message: message}} =
+               PVFileRef.validate(%PDFileRef{type: "file_ref"}, file_ref, opts)
 
       assert message =~ "must be a encoded file ref json payload"
     end

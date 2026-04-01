@@ -14,7 +14,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.BooleanTest do
     end
 
     test "returns error when value is not boolean" do
-      assert {:error, [%{path: :type, message: "must be a boolean."}]} =
+      assert {:error, %{path: :type, message: "must be a boolean."}} =
                PVBoolean.validate(%PDBoolean{}, 1, path: [:default])
     end
   end

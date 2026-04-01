@@ -8,7 +8,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.Boolean do
     if is_boolean(value) do
       {:ok, value}
     else
-      {:error, [%{path: :type, message: "must be a boolean."}]}
+      {:error, %{path: :type, message: "must be a boolean."}}
     end
   end
 end

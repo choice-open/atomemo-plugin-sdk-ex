@@ -23,8 +23,8 @@ defmodule AtomemoPluginSdk.ParameterValidator.FileRef do
      }}
   end
 
-  def validate(_, file_ref, opts) when is_map(file_ref) do
-    if Keyword.get(opts, :source) != :default_definition do
+  def validate(_, %{"__type__" => "file_ref"} = file_ref, opts) do
+    if Keyword.get(opts, :source) != :plugin do
       case FileRef.new(file_ref) do
         {:ok, file_ref} -> {:ok, file_ref}
         {:error, changeset} -> {:error, Error.issues_from_changeset(changeset)}

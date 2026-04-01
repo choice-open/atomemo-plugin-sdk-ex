@@ -14,7 +14,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.StringTest do
     test "returns error when value is not a string" do
       definition = %PDString{}
 
-      assert {:error, [%{path: :type, message: "must be a string."}]} =
+      assert {:error, %{path: :type, message: "must be a string."}} =
                PVString.validate(definition, 123, path: [:default])
     end
 

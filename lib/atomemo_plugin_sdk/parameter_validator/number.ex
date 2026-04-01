@@ -8,10 +8,13 @@ defmodule AtomemoPluginSdk.ParameterValidator.Number do
   def validate(%Number{type: type, minimum: min, maximum: max}, value, _opts) do
     cond do
       not is_number(value) ->
-        {:error, [%{path: :type, message: "must be a number."}]}
+        {:error, %{path: :type, message: "must be a number."}}
 
       type == "integer" and not is_integer(value) ->
-        {:error, [%{path: :type, message: "must be an integer."}]}
+        {:error, %{path: :type, message: "must be an integer."}}
+
+      type == "float" and not is_float(value) ->
+        {:error, %{path: :type, message: "must be a float."}}
 
       is_number(min) and value < min ->
         {:error, %{path: :min, message: "should be greater than or equal to #{min}"}}
