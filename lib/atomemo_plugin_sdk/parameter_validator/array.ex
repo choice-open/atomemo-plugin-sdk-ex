@@ -28,18 +28,17 @@ defmodule AtomemoPluginSdk.ParameterValidator.Array do
   defp validate_items(items, value, opts) do
     value
     |> Enum.with_index()
-    |> Enum.reverse()
     |> Enum.reduce({[], []}, fn {item, index}, {values, errors} ->
       opts = Keyword.put(opts, :prefix, index)
 
       case cast(items, item, opts) do
         {:ok, casted} -> {[casted | values], errors}
-        {:error, %Error{issues: issues}} -> {values, errors ++ issues}
+        {:error, %Error{issues: issues}} -> {values, [issues | errors]}
       end
     end)
     |> case do
-      {values, []} -> {:ok, values}
-      {_values, errors} -> {:error, errors}
+      {values, []} -> {:ok, Enum.reverse(values)}
+      {_values, errors} -> {:error, errors |> Enum.reverse() |> List.flatten()}
     end
   end
 end

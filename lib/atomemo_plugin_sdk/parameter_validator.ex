@@ -7,7 +7,7 @@ defmodule AtomemoPluginSdk.ParameterValidator do
   @type source :: :input | :plugin
 
   @callback validate(struct(), term(), keyword()) ::
-              {:ok, any()} | {:error, [issue() | String.t()] | Error.t()}
+              {:ok, any()} | {:error, [issue()] | issue()}
 
   defmacro __using__(_opts) do
     quote do

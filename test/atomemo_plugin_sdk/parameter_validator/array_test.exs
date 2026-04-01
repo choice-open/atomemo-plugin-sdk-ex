@@ -4,8 +4,6 @@ defmodule AtomemoPluginSdk.ParameterValidator.ArrayTest do
   alias AtomemoPluginSdk.ParameterDefinition.Array, as: PDArray
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
   alias AtomemoPluginSdk.ParameterDefinition.Number, as: PDNumber
-  alias AtomemoPluginSdk.ParameterError, as: Error
-  alias AtomemoPluginSdk.ParameterValidator
   alias AtomemoPluginSdk.ParameterValidator.Array, as: PVArray
 
   describe "validate/3 - type check" do
@@ -154,7 +152,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.ArrayTest do
       # outer[1] = ["only"] → inner array min_items fails (1 < 2)
       value = [["hello", "world"], ["only"]]
 
-      assert {:error, %Error{issues: issues}} = ParameterValidator.cast(definition, value)
+      assert {:error, issues} = PVArray.validate(definition, value, [])
 
       assert [%{path: [1, :min_items], message: "must have at least 2 items."}] = issues
     end
@@ -170,7 +168,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.ArrayTest do
       # outer[1] = "not a list" → inner array type check fails
       value = [["valid"], "not a list"]
 
-      assert {:error, %Error{issues: issues}} = ParameterValidator.cast(definition, value)
+      assert {:error, issues} = PVArray.validate(definition, value, [])
 
       assert [%{path: [1, :type], message: "must be an array (list)."}] = issues
     end
@@ -186,7 +184,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.ArrayTest do
       # outer[1] = ["ab"] → inner[0] string min_length fails
       value = [["abc"], ["ab"]]
 
-      assert {:error, %Error{issues: issues}} = ParameterValidator.cast(definition, value)
+      assert {:error, issues} = PVArray.validate(definition, value, [])
 
       assert [%{path: [1, 0, :min], message: "should be at least 3 character(s)"}] = issues
     end
