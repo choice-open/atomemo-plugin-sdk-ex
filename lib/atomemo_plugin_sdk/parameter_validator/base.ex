@@ -16,6 +16,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.Base do
 
   defp validate_required(_, _), do: :ok
   defp validate_constant(nil, _), do: :ok
+  defp validate_constant(_, nil), do: :ok
   defp validate_constant(value, value), do: :ok
 
   defp validate_constant(_, _) do
@@ -23,6 +24,7 @@ defmodule AtomemoPluginSdk.ParameterValidator.Base do
   end
 
   defp validate_enum(nil, _), do: :ok
+  defp validate_enum(_, nil), do: :ok
 
   defp validate_enum(enums, value) when is_list(enums) do
     if value in enums do

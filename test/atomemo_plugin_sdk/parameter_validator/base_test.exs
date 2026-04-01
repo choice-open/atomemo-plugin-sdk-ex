@@ -44,6 +44,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.BaseTest do
 
       assert {:ok, "anything"} = Base.validate(definition, "anything", [])
     end
+
+    test "returns ok when value is nil and required is false" do
+      definition = %PDString{required: false, constant: "fixed"}
+
+      assert {:ok, nil} = Base.validate(definition, nil, [])
+    end
   end
 
   describe "validate/3 - enum" do
@@ -64,6 +70,12 @@ defmodule AtomemoPluginSdk.ParameterValidator.BaseTest do
       definition = %PDString{}
 
       assert {:ok, "anything"} = Base.validate(definition, "anything", [])
+    end
+
+    test "returns ok when value is nil and required is false" do
+      definition = %PDString{required: false, enum: ["a", "b", "c"]}
+
+      assert {:ok, nil} = Base.validate(definition, nil, [])
     end
   end
 
