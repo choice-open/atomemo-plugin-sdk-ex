@@ -36,6 +36,11 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
                 "expected boolean, got #{inspect(allow_default)}"
     end
 
+    validator_module_ast =
+      quote do
+        unquote(__MODULE__).validator_module_for_definition(__MODULE__)
+      end
+
     quote do
       @after_compile {unquote(__MODULE__), :ensure_validator_module!}
 
@@ -43,6 +48,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
       alias AtomemoPluginSdk.ParameterValidator, as: PV
 
       def __allow_default__, do: unquote(allow_default)
+      def __validator_module__, do: unquote(validator_module_ast)
 
       def validate_default_if_needed(changeset) do
         cond do
@@ -90,7 +96,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     end
   end
 
-  defp validator_module_for_definition(definition_module) do
+  def validator_module_for_definition(definition_module) do
     definition_module
     |> Module.split()
     |> Enum.map(fn

@@ -50,10 +50,10 @@ defmodule AtomemoPluginSdk.ParameterValidator do
          value <- use_default_if_needed(definition, value),
          {:ok, value} <- Base.validate(definition, value, opts),
          {:ok, value} <-
-            if(is_nil(value),
-              do: {:ok, nil},
-              else: validator_mod(module).validate(definition, value, opts)
-            ) do
+           if(is_nil(value),
+             do: {:ok, nil},
+             else: module.__validator_module__().validate(definition, value, opts)
+           ) do
       {:ok, value}
     else
       {:error, message} when is_binary(message) ->
@@ -80,14 +80,4 @@ defmodule AtomemoPluginSdk.ParameterValidator do
   end
 
   defp use_default_if_needed(_definition, value), do: value
-
-  defp validator_mod(module) do
-    module
-    |> Module.split()
-    |> Enum.map(fn
-      "ParameterDefinition" -> "ParameterValidator"
-      segment -> segment
-    end)
-    |> Module.concat()
-  end
 end
