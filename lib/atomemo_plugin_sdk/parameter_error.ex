@@ -12,7 +12,7 @@ defmodule AtomemoPluginSdk.ParameterError do
 
   @type t :: %__MODULE__{issues: [issue()], message: binary() | nil, source: source()}
 
-  @spec new([issue()], keyword()) :: t()
+  @spec new([issue()] | issue() | %Ecto.Changeset{} | binary(), keyword()) :: t()
   def new(issues, opts \\ [])
 
   def new(issues, opts) when is_list(issues) do
