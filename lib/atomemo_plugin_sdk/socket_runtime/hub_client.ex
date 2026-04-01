@@ -28,7 +28,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
   @oauth2_timeout_ms 60_000
 
   def start_link(opts \\ []) do
-    init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name])
+    init_arg = Keyword.take(opts, [:plugin_module, :task_supervisor, :name, :test_mode?])
     slipstream_opts = Keyword.take(opts, [:name, :test_mode?])
     Slipstream.start_link(__MODULE__, init_arg, slipstream_opts)
   end
@@ -38,12 +38,13 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
     plugin_module = Keyword.fetch!(args, :plugin_module)
     client_name = Keyword.get(args, :name)
     task_supervisor = Keyword.fetch!(args, :task_supervisor)
+    test_mode? = Keyword.get(args, :test_mode?, false)
 
     with {:ok, config} <- load_config(),
          {:ok, plugin} <- call_definition(plugin_module) do
       uri = build_uri(config)
 
-      case connect(uri: uri, json_parser: JSON) do
+      case connect(uri: uri, json_parser: JSON, test_mode?: test_mode?) do
         {:ok, socket} ->
           socket =
             socket
