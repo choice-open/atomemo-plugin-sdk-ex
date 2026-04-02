@@ -6,7 +6,15 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     {:error, Entry.new("encrypted_string type does not support internal defaults.")}
   end
 
-  def cast(%@for{}, value, _opts) when is_binary(value), do: {:ok, value}
+  def cast(%@for{}, value, opts) when is_binary(value) do
+    encrypted_string_caster =
+      Keyword.get(opts, :encrypted_string_caster, fn value -> {:ok, value} end)
+
+    case encrypted_string_caster.(value) do
+      {:ok, casted_value} -> {:ok, casted_value}
+      {:error, message} when is_binary(message) -> {:error, Entry.new(message)}
+    end
+  end
 
   def cast(%@for{}, _value, _opts) do
     {:error, Entry.new("must be a string.")}
