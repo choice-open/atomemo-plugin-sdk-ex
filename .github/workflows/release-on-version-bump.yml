@@ -95,3 +95,18 @@ jobs:
         env:
           HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
         run: mix hex.publish --yes
+
+      - name: Tag current commit
+        if: steps.version_check.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+
+          TAG="v${{ steps.version_check.outputs.current_version }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists on remote, skipping."
+            exit 0
+          fi
+
+          git tag "${TAG}"
+          git push origin "${TAG}"
