@@ -8,7 +8,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{max_items: max, min_items: min, items: items}, value, _opts) do
+  def cast(%@for{max_items: max, min_items: min, items: items}, value, opts) do
     cond do
       not is_list(value) ->
         {:error, Entry.new("must be an array (list).")}
@@ -23,15 +23,17 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
         {:ok, value}
 
       true ->
-        validate_items(items, value)
+        validate_items(items, value, opts)
     end
   end
 
-  defp validate_items(items, value) do
+  defp validate_items(items, value, opts) do
     value
     |> Enum.with_index()
     |> Enum.reduce({[], []}, fn {item, index}, {values, errors} ->
-      case ParameterCodec.cast(items, item, prefix: index) do
+      opts = Keyword.put(opts, :prefix, index)
+
+      case ParameterCodec.cast(items, item, opts) do
         {:ok, casted} -> {[casted | values], errors}
         {:error, %Error{errors: entries}} -> {values, [entries | errors]}
       end

@@ -4,6 +4,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.ArrayTest do
   alias AtomemoPluginSdk.ParameterCodec
   alias AtomemoPluginSdk.ParameterCodec.Codecable
   alias AtomemoPluginSdk.ParameterDefinition.Array, as: PDArray
+  alias AtomemoPluginSdk.ParameterDefinition.EncryptedString, as: PDEncryptedString
   alias AtomemoPluginSdk.ParameterDefinition.Number, as: PDNumber
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
   alias AtomemoPluginSdk.ParameterError, as: Error
@@ -224,6 +225,24 @@ defmodule AtomemoPluginSdk.ParameterCodec.ArrayTest do
 
       assert {:error, %Error{errors: [%Entry{path: ["items", 0]}]}} =
                ParameterCodec.cast(definition, ["ab"], prefix: "items")
+    end
+
+    test "propagates encrypted_string_caster to item codec" do
+      definition = %PDArray{items: %PDEncryptedString{}}
+      caster = fn value -> {:ok, "ENC(" <> value <> ")"} end
+
+      assert {:ok, ["ENC(secret1)", "ENC(secret2)"]} =
+               ParameterCodec.cast(definition, ["secret1", "secret2"],
+                 encrypted_string_caster: caster
+               )
+    end
+
+    test "keeps index path when item caster returns an error" do
+      definition = %PDArray{items: %PDEncryptedString{}}
+      caster = fn _value -> {:error, "invalid encrypted value"} end
+
+      assert {:error, %Error{errors: [%Entry{path: [0], message: "invalid encrypted value"}]}} =
+               ParameterCodec.cast(definition, ["secret1"], encrypted_string_caster: caster)
     end
   end
 end

@@ -8,7 +8,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{discriminator: discriminator, any_of: any_of}, value, _opts) do
+  def cast(%@for{discriminator: discriminator, any_of: any_of}, value, opts) do
     cond do
       not is_map(value) ->
         {:error, Entry.new("must be an object.")}
@@ -27,7 +27,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
              )}
 
           matched ->
-            case ParameterCodec.cast(matched, value) do
+            case ParameterCodec.cast(matched, value, Keyword.delete(opts, :prefix)) do
               {:ok, value} -> {:ok, value}
               {:error, %Error{errors: entries}} -> {:error, entries}
             end

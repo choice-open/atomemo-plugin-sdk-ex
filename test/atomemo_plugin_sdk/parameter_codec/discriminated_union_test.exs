@@ -5,6 +5,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.DiscriminatedUnionTest do
   alias AtomemoPluginSdk.ParameterCodec.Codecable
   alias AtomemoPluginSdk.ParameterDefinition.Array, as: PDArray
   alias AtomemoPluginSdk.ParameterDefinition.DiscriminatedUnion, as: PDDiscriminatedUnion
+  alias AtomemoPluginSdk.ParameterDefinition.EncryptedString, as: PDEncryptedString
   alias AtomemoPluginSdk.ParameterDefinition.Number, as: PDNumber
   alias AtomemoPluginSdk.ParameterDefinition.Object, as: PDObject
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
@@ -195,6 +196,32 @@ defmodule AtomemoPluginSdk.ParameterCodec.DiscriminatedUnionTest do
     end
   end
 
+  describe "integration via ParameterCodec.cast/3 - opts propagation" do
+    test "propagates encrypted_string_caster to matched branch codec" do
+      definition = secret_definition()
+      caster = fn value -> {:ok, "ENC(" <> value <> ")"} end
+
+      assert {:ok, %{"kind" => "secret", "secret" => "ENC(payload)"}} =
+               ParameterCodec.cast(definition, %{"kind" => "secret", "secret" => "payload"},
+                 encrypted_string_caster: caster
+               )
+    end
+
+    test "keeps prefix single-applied while still propagating non-prefix opts" do
+      definition = secret_definition()
+      caster = fn _value -> {:error, "invalid encrypted value"} end
+
+      assert {:error,
+              %Error{
+                errors: [%Entry{path: ["payload", "secret"], message: "invalid encrypted value"}]
+              }} =
+               ParameterCodec.cast(definition, %{"kind" => "secret", "secret" => "payload"},
+                 prefix: "payload",
+                 encrypted_string_caster: caster
+               )
+    end
+  end
+
   defp build_definition do
     %PDDiscriminatedUnion{
       discriminator: "kind",
@@ -209,6 +236,20 @@ defmodule AtomemoPluginSdk.ParameterCodec.DiscriminatedUnionTest do
           properties: [
             %PDString{name: "kind", constant: "number"},
             %PDNumber{name: "value", required: true, type: "number", maximum: 100}
+          ]
+        }
+      ]
+    }
+  end
+
+  defp secret_definition do
+    %PDDiscriminatedUnion{
+      discriminator: "kind",
+      any_of: [
+        %PDObject{
+          properties: [
+            %PDString{name: "kind", constant: "secret"},
+            %PDEncryptedString{name: "secret", required: true}
           ]
         }
       ]

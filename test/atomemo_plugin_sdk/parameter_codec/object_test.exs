@@ -3,6 +3,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.ObjectTest do
 
   alias AtomemoPluginSdk.ParameterCodec
   alias AtomemoPluginSdk.ParameterCodec.Codecable
+  alias AtomemoPluginSdk.ParameterDefinition.EncryptedString, as: PDEncryptedString
   alias AtomemoPluginSdk.ParameterDefinition.Number, as: PDNumber
   alias AtomemoPluginSdk.ParameterDefinition.Object, as: PDObject
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
@@ -233,6 +234,66 @@ defmodule AtomemoPluginSdk.ParameterCodec.ObjectTest do
 
       assert {:error, [%Entry{path: ["name"], message: "should be at least 3 character(s)"}]} =
                Codecable.cast_for_default(definition, %{"name" => "ab"})
+    end
+  end
+
+  describe "integration via ParameterCodec.cast/3 - opts propagation" do
+    test "propagates encrypted_string_caster to property codec" do
+      definition = %PDObject{
+        properties: [%PDEncryptedString{name: "password"}]
+      }
+
+      caster = fn value -> {:ok, "ENC(" <> value <> ")"} end
+
+      assert {:ok, %{"password" => "ENC(secret)"}} =
+               ParameterCodec.cast(definition, %{"password" => "secret"},
+                 encrypted_string_caster: caster
+               )
+    end
+
+    test "propagates encrypted_string_caster to additional_properties codec" do
+      definition = %PDObject{
+        properties: [],
+        additional_properties: %PDEncryptedString{}
+      }
+
+      caster = fn value -> {:ok, "ENC(" <> value <> ")"} end
+
+      assert {:ok, %{"token" => "ENC(secret-token)"}} =
+               ParameterCodec.cast(definition, %{"token" => "secret-token"},
+                 encrypted_string_caster: caster
+               )
+    end
+
+    test "keeps property path when property caster returns an error" do
+      definition = %PDObject{
+        properties: [%PDEncryptedString{name: "password"}]
+      }
+
+      caster = fn _value -> {:error, "invalid encrypted value"} end
+
+      assert {:error,
+              %Error{
+                errors: [%Entry{path: ["password"], message: "invalid encrypted value"}]
+              }} =
+               ParameterCodec.cast(definition, %{"password" => "secret"},
+                 encrypted_string_caster: caster
+               )
+    end
+
+    test "keeps additional property key path when caster returns an error" do
+      definition = %PDObject{
+        properties: [],
+        additional_properties: %PDEncryptedString{}
+      }
+
+      caster = fn _value -> {:error, "invalid encrypted value"} end
+
+      assert {:error,
+              %Error{errors: [%Entry{path: ["token"], message: "invalid encrypted value"}]}} =
+               ParameterCodec.cast(definition, %{"token" => "secret"},
+                 encrypted_string_caster: caster
+               )
     end
   end
 end
