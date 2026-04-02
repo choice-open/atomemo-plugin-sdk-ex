@@ -103,6 +103,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
       assert {:ok, nil} = Base.cast(definition, nil)
     end
 
+    test "requires exact type match for constant value" do
+      definition = %PDString{name: "field", constant: "123"}
+
+      assert {:error, [%Entry{path: [], message: "must be the constant value."}]} =
+               Base.cast(definition, 123)
+    end
+  end
+
   describe "cast/2 - enum validation" do
     test "returns ok when value is in enum list" do
       definition = %PDString{enum: ["alpha", "beta"]}
