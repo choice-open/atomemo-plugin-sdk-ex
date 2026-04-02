@@ -36,19 +36,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
                 "expected boolean, got #{inspect(allow_default)}"
     end
 
-    validator_module_ast =
-      quote do
-        unquote(__MODULE__).validator_module_for_definition(__MODULE__)
-      end
-
     quote do
-      @after_compile {unquote(__MODULE__), :ensure_validator_module!}
+      @after_compile {unquote(__MODULE__), :ensure_protocol_implementation!}
 
       import unquote(__MODULE__)
-      alias AtomemoPluginSdk.ParameterValidator, as: PV
+
+      alias AtomemoPluginSdk.ParameterCodec, as: PC
 
       def __allow_default__, do: unquote(allow_default)
-      def __validator_module__, do: unquote(validator_module_ast)
 
       def validate_default_if_needed(changeset) do
         cond do
@@ -59,7 +54,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
             changeset
 
           true ->
-            case changeset |> apply_changes() |> PV.validate_default() do
+            case changeset |> apply_changes() |> PC.validate_default() do
               :ok ->
                 changeset
 
@@ -71,39 +66,10 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     end
   end
 
-  def ensure_validator_module!(env, _bytecode) do
-    definition_module = env.module
-    validator_module = validator_module_for_definition(definition_module)
-
-    case Code.ensure_compiled(validator_module) do
-      {:module, _module} ->
-        if function_exported?(validator_module, :validate, 3) do
-          :ok
-        else
-          raise CompileError,
-            file: env.file,
-            line: env.line,
-            description:
-              "#{inspect(validator_module)} must define validate/3 for #{inspect(definition_module)}"
-        end
-
-      {:error, _reason} ->
-        raise CompileError,
-          file: env.file,
-          line: env.line,
-          description:
-            "missing corresponding validator module #{inspect(validator_module)} for #{inspect(definition_module)}"
-    end
-  end
-
-  def validator_module_for_definition(definition_module) do
-    definition_module
-    |> Module.split()
-    |> Enum.map(fn
-      "ParameterDefinition" -> "ParameterValidator"
-      segment -> segment
-    end)
-    |> Module.concat()
+  def ensure_protocol_implementation!(env, _bytecode) do
+    env.module
+    |> struct()
+    |> AtomemoPluginSdk.ParameterCodec.Codecable.impl_for!()
   end
 
   def cast_and_validate_base_fields(changeset, attrs) do

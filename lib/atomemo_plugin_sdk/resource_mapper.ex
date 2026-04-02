@@ -47,7 +47,7 @@ defmodule AtomemoPluginSdk.ResourceMapper do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, changeset} -> raise Error.new(changeset, source: :runtime)
+      {:error, changeset} -> raise changeset |> Error.Entry.new() |> Error.new()
     end
   end
 
