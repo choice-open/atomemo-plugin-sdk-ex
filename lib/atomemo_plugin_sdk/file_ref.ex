@@ -56,7 +56,7 @@ defmodule AtomemoPluginSdk.FileRef do
   """
   @spec new(map()) :: {:ok, t()} | {:error, String.t()}
   def new(attrs) when is_map(attrs) do
-    case attrs |> changeset() |> apply_action(:insert) do
+    case attrs |> hydrate_changeset() |> apply_action(:insert) do
       {:ok, file_ref} -> {:ok, file_ref}
       {:error, changeset} -> {:error, changeset}
     end
