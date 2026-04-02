@@ -1,10 +1,12 @@
 defmodule AtomemoPluginSdk.MixProject do
   use Mix.Project
 
+  @version "0.1.0-rc.0"
+
   def project do
     [
       app: :atomemo_plugin_sdk,
-      version: "0.1.0",
+      version: @version,
       description: "Elixir SDK for Atomemo plugins.",
       elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,

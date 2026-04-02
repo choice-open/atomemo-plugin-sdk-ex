@@ -6,3 +6,9 @@
 本项目遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
 ## [Unreleased]
+
+## 0.1.0-rc.0 - 2026-04-02
+
+### Added
+
+- 对 SDK 公开化，发布至 `hex.pm`

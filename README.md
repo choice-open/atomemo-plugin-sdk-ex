@@ -2,6 +2,11 @@
 
 **TODO: Add description**
 
+## Requirements
+
+- Erlang/OTP `>= 27` (requires the built-in Erlang JSON module `:json`)
+- Elixir `~> 1.19`
+
 ## Installation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
