@@ -12,3 +12,4 @@
 ### Added
 
 - 对 SDK 公开化，发布至 `hex.pm`
+- Github Action 自动发布脚本
