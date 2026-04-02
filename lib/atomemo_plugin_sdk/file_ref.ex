@@ -2,6 +2,8 @@ defmodule AtomemoPluginSdk.FileRef do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias AtomemoPluginSdk.ParameterError, as: Error
+
   @moduledoc """
   Runtime file reference struct, shared by Hub and SDK.
 
@@ -10,49 +12,40 @@ defmodule AtomemoPluginSdk.FileRef do
   - JSON encoding adds `__type__: "file_ref"` and base64-encodes `content`
   """
 
-  @type t :: %__MODULE__{
-          source: :oss | :mem,
-          filename: String.t() | nil,
-          extension: String.t() | nil,
-          mime_type: String.t() | nil,
-          size: non_neg_integer() | nil,
-          res_key: String.t() | nil,
-          remote_url: String.t() | nil,
-          content: binary() | nil
-        }
-
-  @field_specs [
-    {:source, Ecto.Enum, [values: [:oss, :mem]]},
-    {:filename, :string, []},
-    {:extension, :string, []},
-    {:mime_type, :string, []},
-    {:size, :integer, []},
-    {:res_key, :string, []},
-    {:remote_url, :string, []},
-    {:content, :binary, []}
-  ]
-
-  @fields Enum.map(@field_specs, &elem(&1, 0))
+  @type t :: %__MODULE__{}
 
   @primary_key false
   embedded_schema do
-    for {name, type, opts} <- @field_specs do
-      field(name, type, opts)
-    end
+    field :source, Ecto.Enum, values: [:oss, :mem]
+    field :filename, :string
+    field :extension, :string
+    field :mime_type, :string
+    field :size, :integer
+    field :res_key, :string
+    field :remote_url, :string
+    field :content, :binary
+  end
+
+  def changeset(file_ref \\ %__MODULE__{}, attrs) do
+    file_ref
+    |> cast(attrs, [
+      :source,
+      :filename,
+      :extension,
+      :mime_type,
+      :size,
+      :res_key,
+      :remote_url,
+      :content
+    ])
+    |> validate_required([:source])
+    |> validate_number(:size, greater_than_or_equal_to: 0)
   end
 
   def hydrate_changeset(file_ref \\ %__MODULE__{}, attrs) do
     file_ref
-    |> cast(attrs, @fields)
-    |> validate_required([:source])
+    |> changeset(attrs)
     |> decode_content_if_needed()
-  end
-
-  defp decode_content_if_needed(chset) do
-    case get_change(chset, :content) do
-      nil -> chset
-      content -> put_change(chset, :content, Base.decode64!(content))
-    end
   end
 
   @doc """
@@ -63,25 +56,9 @@ defmodule AtomemoPluginSdk.FileRef do
   """
   @spec new(map()) :: {:ok, t()} | {:error, String.t()}
   def new(attrs) when is_map(attrs) do
-    with {:ok, source} <- validate_source(attrs["source"]),
-         {:ok, content} <- validate_content(attrs["content"]),
-         :ok <- validate_optional_string(attrs, "filename"),
-         :ok <- validate_optional_string(attrs, "extension"),
-         :ok <- validate_optional_string(attrs, "mime_type"),
-         :ok <- validate_optional_string(attrs, "res_key"),
-         :ok <- validate_optional_string(attrs, "remote_url"),
-         {:ok, size} <- validate_size(attrs["size"]) do
-      {:ok,
-       %__MODULE__{
-         source: source,
-         filename: attrs["filename"],
-         extension: attrs["extension"],
-         mime_type: attrs["mime_type"],
-         size: size,
-         res_key: attrs["res_key"],
-         remote_url: attrs["remote_url"],
-         content: content
-       }}
+    case attrs |> changeset() |> apply_action(:insert) do
+      {:ok, file_ref} -> {:ok, file_ref}
+      {:error, changeset} -> {:error, changeset}
     end
   end
 
@@ -94,37 +71,22 @@ defmodule AtomemoPluginSdk.FileRef do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, message} -> raise ArgumentError, "Invalid FileRef: #{message}"
+      {:error, changeset} -> raise changeset |> Error.Entry.new() |> Error.new()
     end
   end
 
-  defp validate_source("oss"), do: {:ok, :oss}
-  defp validate_source("mem"), do: {:ok, :mem}
-  defp validate_source(nil), do: {:error, "source is required"}
-  defp validate_source(other), do: {:error, "invalid source: #{inspect(other)}"}
+  defp decode_content_if_needed(chset) do
+    case get_change(chset, :content) do
+      nil ->
+        chset
 
-  defp validate_content(nil), do: {:ok, nil}
-  defp validate_content(b) when not is_binary(b), do: {:error, "content must be binary"}
-
-  defp validate_content(b) do
-    case Base.decode64(b) do
-      {:ok, decoded} -> {:ok, decoded}
-      :error -> {:error, "invalid base64 content"}
+      content ->
+        case Base.decode64(content) do
+          {:ok, decoded} -> put_change(chset, :content, decoded)
+          :error -> add_error(chset, :content, "invalid base64 content")
+        end
     end
   end
-
-  defp validate_optional_string(attrs, key) do
-    case attrs[key] do
-      nil -> :ok
-      s when is_binary(s) -> :ok
-      _ -> {:error, "invalid field: #{key}"}
-    end
-  end
-
-  defp validate_size(nil), do: {:ok, nil}
-  defp validate_size(n) when not is_integer(n), do: {:error, "size must be integer"}
-  defp validate_size(n) when n < 0, do: {:error, "size must be non-negative"}
-  defp validate_size(n), do: {:ok, n}
 end
 
 defimpl JSON.Encoder, for: AtomemoPluginSdk.FileRef do

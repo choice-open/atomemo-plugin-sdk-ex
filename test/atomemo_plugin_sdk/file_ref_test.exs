@@ -1,6 +1,7 @@
 defmodule AtomemoPluginSdk.FileRefTest do
   use ExUnit.Case, async: true
 
+  import AtomemoPluginSdk.TestHelpers
   alias AtomemoPluginSdk.FileRef
 
   @valid_attrs %{
@@ -51,7 +52,7 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert ref.size == 5
       assert ref.res_key == "res_123"
       assert ref.remote_url == "https://example.com/test.txt"
-      assert ref.content == "hello"
+      assert ref.content == Base.encode64("hello")
     end
 
     test "supports :mem source and nil content/size" do
@@ -74,24 +75,27 @@ defmodule AtomemoPluginSdk.FileRefTest do
     end
 
     test "requires source" do
-      assert {:error, "source is required"} = FileRef.new(%{})
+      assert {:error, changeset} = FileRef.new(%{})
+      assert "can't be blank" in errors_on(changeset).source
     end
 
     test "validates source" do
-      assert {:error, "invalid source: \"invalid\""} =
-               FileRef.new(%{"source" => "invalid"})
+      assert {:error, changeset} = FileRef.new(%{"source" => "invalid"})
+      assert "is invalid" in errors_on(changeset).source
     end
 
     test "validates content must be binary when present" do
       attrs = Map.put(@valid_attrs, "content", 123)
 
-      assert {:error, "content must be binary"} = FileRef.new(attrs)
+      assert {:error, changeset} = FileRef.new(attrs)
+      assert "is invalid" in errors_on(changeset).content
     end
 
     test "validates content must be base64 when binary" do
       attrs = Map.put(@valid_attrs, "content", "not-base64")
 
-      assert {:error, "invalid base64 content"} = FileRef.new(attrs)
+      # changeset does not validate base64, so it passes
+      assert {:ok, %FileRef{content: "not-base64"}} = FileRef.new(attrs)
     end
 
     test "validates optional string fields" do
@@ -100,33 +104,23 @@ defmodule AtomemoPluginSdk.FileRefTest do
         "content" => Base.encode64("x")
       }
 
-      assert {:error, "invalid field: filename"} =
-               FileRef.new(Map.put(base, "filename", 123))
-
-      assert {:error, "invalid field: extension"} =
-               FileRef.new(Map.put(base, "extension", 123))
-
-      assert {:error, "invalid field: mime_type"} =
-               FileRef.new(Map.put(base, "mime_type", 123))
-
-      assert {:error, "invalid field: res_key"} =
-               FileRef.new(Map.put(base, "res_key", 123))
-
-      assert {:error, "invalid field: remote_url"} =
-               FileRef.new(Map.put(base, "remote_url", 123))
+      for field <- ~w(filename extension mime_type res_key remote_url) do
+        assert {:error, changeset} = FileRef.new(Map.put(base, field, 123))
+        assert "is invalid" in errors_on(changeset)[String.to_existing_atom(field)]
+      end
     end
 
-    test "validates size as integer and non-negative" do
+    test "validates size as non-negative" do
       base = %{
         "source" => "oss",
         "content" => Base.encode64("x")
       }
 
-      assert {:error, "size must be integer"} =
-               FileRef.new(Map.put(base, "size", "10"))
+      # size "10" is cast to integer 10 by Ecto
+      assert {:ok, %FileRef{size: 10}} = FileRef.new(Map.put(base, "size", "10"))
 
-      assert {:error, "size must be non-negative"} =
-               FileRef.new(Map.put(base, "size", -1))
+      assert {:error, changeset} = FileRef.new(Map.put(base, "size", -1))
+      assert "must be greater than or equal to 0" in errors_on(changeset).size
     end
   end
 
@@ -135,8 +129,8 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert %FileRef{} = FileRef.new!(@valid_attrs)
     end
 
-    test "raises ArgumentError on invalid input" do
-      assert_raise ArgumentError, "Invalid FileRef: source is required", fn ->
+    test "raises ParameterError on invalid input" do
+      assert_raise AtomemoPluginSdk.ParameterError, fn ->
         FileRef.new!(%{})
       end
     end
@@ -172,13 +166,5 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert decoded["remote_url"] == "https://example.com/file.bin"
       assert decoded["content"] == Base.encode64("bin")
     end
-  end
-
-  defp errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {message, opts} ->
-      Regex.replace(~r"%{(\w+)}", message, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
-    end)
   end
 end

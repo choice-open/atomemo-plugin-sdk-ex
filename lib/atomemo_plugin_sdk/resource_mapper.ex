@@ -6,9 +6,11 @@ defmodule AtomemoPluginSdk.ResourceMapper do
   - `mapping_mode`: :auto or :manual
   - `value`: when manual, the mapping object (map); nil for auto mode
   """
-  alias AtomemoPluginSdk.JSONValue
   use Ecto.Schema
   import Ecto.Changeset
+
+  alias AtomemoPluginSdk.ParameterError, as: Error
+  alias AtomemoPluginSdk.JSONValue
 
   @primary_key false
   embedded_schema do
@@ -31,15 +33,11 @@ defmodule AtomemoPluginSdk.ResourceMapper do
     |> validate_required([:mapping_mode])
   end
 
-  @spec new(map()) :: {:ok, t()} | {:error, String.t()}
+  @spec new(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
   def new(attrs) when is_map(attrs) do
-    changeset = hydrate_changeset(%__MODULE__{}, attrs)
-
-    if changeset.valid? do
-      {:ok, apply_changes(changeset)}
-    else
-      [{field, {msg, _opts}} | _] = changeset.errors
-      {:error, "#{field} #{msg}"}
+    case attrs |> hydrate_changeset() |> apply_action(:insert) do
+      {:ok, struct} -> {:ok, struct}
+      {:error, changeset} -> {:error, changeset}
     end
   end
 
@@ -49,7 +47,7 @@ defmodule AtomemoPluginSdk.ResourceMapper do
   def new!(attrs) do
     case new(attrs) do
       {:ok, struct} -> struct
-      {:error, message} -> raise ArgumentError, "Invalid ResourceMapper: #{message}"
+      {:error, changeset} -> raise changeset |> Error.Entry.new() |> Error.new()
     end
   end
 

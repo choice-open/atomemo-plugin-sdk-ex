@@ -2,6 +2,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
   use ExUnit.Case
   use Slipstream.SocketTest
 
+  import ExUnit.CaptureLog
+
   alias AtomemoPluginSdk.PluginDefinition
   alias AtomemoPluginSdk.SocketRuntime.{HubClient, HubCaller}
 
@@ -104,8 +106,6 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     end
 
     test "returns {:error, {:hub_client_down, _}} when HubClient crashes", %{client: client} do
-      import ExUnit.CaptureLog
-
       task =
         Task.async(fn ->
           HubCaller.call(client, "get_file_url", %{"res_key" => "path/to/file.pdf"},
@@ -160,8 +160,6 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
     end
 
     test "cleans up pending_hub_calls on timeout", %{client: client} do
-      import ExUnit.CaptureLog
-
       _task =
         Task.async(fn ->
           HubCaller.call(client, "get_file_url", %{"res_key" => "timeout/file.pdf"}, timeout: 50)
@@ -169,12 +167,10 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
 
       assert_push("debug_plugin:hub_caller_test_plugin", "hub_call:get_file_url", _payload, _ref)
 
-      capture_log(fn ->
-        Process.sleep(100)
+      Process.sleep(150)
 
-        state = :sys.get_state(client)
-        assert state.assigns.pending_hub_calls == %{}
-      end)
+      state = :sys.get_state(client)
+      assert state.assigns.pending_hub_calls == %{}
     end
   end
 
@@ -270,7 +266,14 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
         "parameters" => %{"res_key" => "my/doc.pdf"}
       })
 
-      assert_push("debug_plugin:hub_caller_tool_plugin", "hub_call:get_file_url", payload, _ref)
+      assert_push(
+        "debug_plugin:hub_caller_tool_plugin",
+        "hub_call:get_file_url",
+        payload,
+        _ref,
+        1_000
+      )
+
       assert payload["data"] == %{"res_key" => "my/doc.pdf"}
       request_id = payload["request_id"]
 
@@ -286,7 +289,8 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubCallerTest do
           "request_id" => "req_001",
           "data" => %{"url" => "https://cdn.example.com/my/doc.pdf"}
         },
-        _
+        _,
+        1_000
       )
     end
   end

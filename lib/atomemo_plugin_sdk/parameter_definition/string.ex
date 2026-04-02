@@ -26,6 +26,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.String do
     |> validate_number(:max_length, greater_than_or_equal_to: 0)
     |> validate_number(:min_length, greater_than_or_equal_to: 0)
     |> validate_max_length_gte_min_length()
+    |> validate_default_if_needed()
   end
 
   defp validate_max_length_gte_min_length(changeset) do

@@ -1,34 +1,16 @@
 defmodule AtomemoPluginSdk.LLMConfig do
   use Ecto.Schema
+  import Ecto.Changeset
+  alias AtomemoPluginSdk.ParameterError, as: Error
 
-  @type t() :: %__MODULE__{
-          plugin_slug: String.t(),
-          version_slug: String.t(),
-          model: String.t(),
-          credential_instance_id: String.t(),
-          model_params: __MODULE__.ModelParams.t()
-        }
-
-  @field_specs [
-    {:plugin_slug, :string, []},
-    {:version_slug, :string, []},
-    {:model, :string, []},
-    {:credential_instance_id, :string, []}
-  ]
-
-  @fields Enum.map(@field_specs, &elem(&1, 0))
-
-  @required_fields [
-    :plugin_slug,
-    :version_slug,
-    :model
-  ]
+  @type t() :: %__MODULE__{}
 
   @primary_key false
   embedded_schema do
-    for {name, type, opts} <- @field_specs do
-      field(name, type, opts)
-    end
+    field :plugin_slug, :string
+    field :version_slug, :string
+    field :model, :string
+    field :credential_instance_id, :string
 
     embeds_one :model_params, __MODULE__.ModelParams, on_replace: :delete
   end
@@ -36,10 +18,9 @@ defmodule AtomemoPluginSdk.LLMConfig do
   @doc false
   def changeset(llm_config, attrs \\ %{}) do
     llm_config
-    |> Ecto.Changeset.cast(attrs, @fields)
-    |> Ecto.Changeset.validate_required(@required_fields)
-    |> Ecto.Changeset.cast_embed(:model_params)
-    |> Ecto.Changeset.validate_required([:model_params])
+    |> cast(attrs, [:plugin_slug, :version_slug, :model, :credential_instance_id])
+    |> validate_required([:plugin_slug, :version_slug, :model])
+    |> cast_embed(:model_params, required: true)
   end
 
   def hydrate_changeset(llm_config \\ %__MODULE__{}, attrs) do
@@ -47,55 +28,50 @@ defmodule AtomemoPluginSdk.LLMConfig do
   end
 
   @spec new(%{optional(String.t()) => any()} | %{optional(atom()) => any}) ::
-          {:ok, t()} | {:error, Ecto.Changeset.t()}
+          {:ok, t()} | {:error, String.t()}
   def new(attrs) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Ecto.Changeset.apply_action(:insert)
+    case %__MODULE__{} |> changeset(attrs) |> apply_action(:insert) do
+      {:ok, file_ref} -> {:ok, file_ref}
+      {:error, changeset} -> {:error, changeset}
+    end
   end
 
   @spec new!(%{optional(String.t()) => any()} | %{optional(atom()) => any}) :: t()
   def new!(attrs) do
-    %__MODULE__{}
-    |> changeset(attrs)
-    |> Ecto.Changeset.apply_action!(:insert)
+    case new(attrs) do
+      {:ok, struct} -> struct
+      {:error, changeset} -> raise changeset |> Error.Entry.new() |> Error.new()
+    end
   end
 
   defmodule ModelParams do
     use Ecto.Schema
 
-    @type t() :: %__MODULE__{
-            structured_outputs: boolean(),
-            json_schema: nil | map(),
-            verbosity: nil | String.t(),
-            temperature: nil | float(),
-            frequency_penalty: nil | float()
-          }
+    import Ecto.Changeset
 
-    @field_specs [
-      # {:stream, :boolean, [default: false]},
-      {:structured_outputs, :boolean, [default: false]},
-      {:json_schema, :map, []},
-      {:verbosity, :string, []},
-      {:temperature, :float, []},
-      {:frequency_penalty, :float, []}
-    ]
-
-    @fields Enum.map(@field_specs, &elem(&1, 0))
+    @type t() :: %__MODULE__{}
 
     @primary_key false
     @derive JSON.Encoder
     @derive Jason.Encoder
     embedded_schema do
-      for {name, type, opts} <- @field_specs do
-        field(name, type, opts)
-      end
+      field :structured_outputs, :boolean, default: false
+      field :json_schema, :map
+      field :verbosity, :string
+      field :temperature, :float
+      field :frequency_penalty, :float
     end
 
     @doc false
     def changeset(model_params, attrs \\ %{}) do
       model_params
-      |> Ecto.Changeset.cast(attrs, @fields)
+      |> cast(attrs, [
+        :structured_outputs,
+        :json_schema,
+        :verbosity,
+        :temperature,
+        :frequency_penalty
+      ])
     end
 
     @spec new(%{optional(String.t()) => any()} | %{optional(atom()) => any}) ::
@@ -103,14 +79,14 @@ defmodule AtomemoPluginSdk.LLMConfig do
     def new(attrs) do
       %__MODULE__{}
       |> changeset(attrs)
-      |> Ecto.Changeset.apply_action(:insert)
+      |> apply_action(:insert)
     end
 
     @spec new!(%{optional(String.t()) => any()} | %{optional(atom()) => any}) :: t()
     def new!(attrs) do
       %__MODULE__{}
       |> changeset(attrs)
-      |> Ecto.Changeset.apply_action!(:insert)
+      |> apply_action!(:insert)
     end
   end
 end

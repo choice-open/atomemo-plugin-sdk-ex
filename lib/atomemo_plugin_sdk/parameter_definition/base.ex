@@ -23,13 +23,58 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     end
   end
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
+    allow_default = Keyword.get(opts, :allow_default, true)
+
+    case is_boolean(allow_default) do
+      true ->
+        :ok
+
+      false ->
+        raise ArgumentError,
+              "invalid :allow_default option for use #{inspect(__MODULE__)}: " <>
+                "expected boolean, got #{inspect(allow_default)}"
+    end
+
     quote do
+      @after_compile {unquote(__MODULE__), :ensure_protocol_implementation!}
+
       import unquote(__MODULE__)
+
+      alias AtomemoPluginSdk.ParameterCodec, as: PC
+
+      def __allow_default__, do: unquote(allow_default)
+
+      def validate_default_if_needed(changeset) do
+        cond do
+          not changeset.valid? ->
+            changeset
+
+          changeset |> get_field(:default) |> is_nil() ->
+            changeset
+
+          true ->
+            case changeset |> apply_changes() |> PC.validate_default() do
+              :ok ->
+                changeset
+
+              {:error, %AtomemoPluginSdk.ParameterError{} = error} ->
+                add_error(changeset, :default, AtomemoPluginSdk.ParameterError.message(error))
+            end
+        end
+      end
     end
   end
 
+  def ensure_protocol_implementation!(env, _bytecode) do
+    env.module
+    |> struct()
+    |> AtomemoPluginSdk.ParameterCodec.Codecable.impl_for!()
+  end
+
   def cast_and_validate_base_fields(changeset, attrs) do
+    attrs = normalize_default_if_struct(attrs)
+
     changeset
     |> cast(attrs, [
       :decoder,
@@ -47,4 +92,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     ])
     |> validate_required([:type])
   end
+
+  defp normalize_default_if_struct(%{"default" => default} = attrs) when is_struct(default) do
+    %{attrs | "default" => default |> JSON.encode!() |> JSON.decode!()}
+  end
+
+  defp normalize_default_if_struct(%{default: default} = attrs) when is_struct(default) do
+    %{attrs | default: default |> JSON.encode!() |> JSON.decode!()}
+  end
+
+  defp normalize_default_if_struct(attrs), do: attrs
 end

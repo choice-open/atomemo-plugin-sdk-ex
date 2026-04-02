@@ -74,7 +74,7 @@ defmodule AtomemoPluginSdk.ResourceMapperTest do
     end
 
     test "raises on invalid input" do
-      assert_raise ArgumentError, fn ->
+      assert_raise AtomemoPluginSdk.ParameterError, fn ->
         ResourceMapper.new!(%{})
       end
     end

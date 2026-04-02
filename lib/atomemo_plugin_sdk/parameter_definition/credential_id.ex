@@ -1,6 +1,6 @@
 defmodule AtomemoPluginSdk.ParameterDefinition.CredentialId do
   use Ecto.Schema
-  use AtomemoPluginSdk.ParameterDefinition.Base
+  use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
 
   import Ecto.Changeset
 
@@ -22,5 +22,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.CredentialId do
     |> cast_and_validate_base_fields(attrs)
     |> cast(attrs, [:credential_name])
     |> validate_required([:credential_name])
+    |> validate_default_if_needed()
   end
 end

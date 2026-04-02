@@ -22,5 +22,6 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceMapper do
     |> cast_and_validate_base_fields(attrs)
     |> cast(attrs, [:mapping_method])
     |> validate_required([:mapping_method])
+    |> validate_default_if_needed()
   end
 end
