@@ -20,7 +20,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           elixir-version: '1.19.4'
-          otp-version: '28.0'
+          otp-version: '28.4'
 
       - name: Install dependencies
         run: |
@@ -34,13 +34,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          CURRENT_VERSION=$(mix run -e 'IO.puts(Mix.Project.config()[:version])')
-          PACKAGE_NAME=$(mix run -e '
+          CURRENT_VERSION_RAW=$(mix run -e 'IO.puts(to_string(Mix.Project.config()[:version]))' 2>&1)
+          PACKAGE_NAME_RAW=$(mix run -e '
             config = Mix.Project.config()
             package = config[:package] || []
-            name = package[:name] || to_string(config[:app])
-            IO.puts(name)
-          ')
+            name = package[:name] || config[:app]
+            IO.puts(to_string(name))
+          ' 2>&1)
+
+          CURRENT_VERSION=$(printf '%s\n' "$CURRENT_VERSION_RAW" | sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | tail -n1 | tr -d '\r')
+          PACKAGE_NAME=$(printf '%s\n' "$PACKAGE_NAME_RAW" | sed -E 's/\x1B\[[0-9;]*[A-Za-z]//g' | tail -n1 | tr -d '\r')
+
+          if [ -z "$CURRENT_VERSION" ] || [ -z "$PACKAGE_NAME" ]; then
+            echo "Unable to parse version/app from mix.exs"
+            exit 1
+          fi
 
           API_URL="https://hex.pm/api/packages/${PACKAGE_NAME}"
           RESPONSE=$(curl -fsS "$API_URL" || true)
