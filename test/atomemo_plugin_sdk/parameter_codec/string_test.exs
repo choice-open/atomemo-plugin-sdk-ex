@@ -67,6 +67,20 @@ defmodule AtomemoPluginSdk.ParameterCodec.StringTest do
 
       assert {:error, [%Entry{path: []}]} = Codecable.cast(definition, "ab")
     end
+
+    test "counts unicode graphemes for min_length" do
+      definition = %PDString{min_length: 2}
+
+      assert {:error, [%Entry{message: "should be at least 2 character(s)"}]} =
+               Codecable.cast(definition, "你")
+    end
+
+    test "counts unicode graphemes for max_length" do
+      definition = %PDString{max_length: 2}
+
+      assert {:error, [%Entry{message: "should be at most 2 character(s)"}]} =
+               Codecable.cast(definition, "你好啊")
+    end
   end
 
   describe "cast_for_internal_default/2" do
