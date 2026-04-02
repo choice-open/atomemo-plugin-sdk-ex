@@ -3,6 +3,7 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
   import AtomemoPluginSdk.TestHelpers
 
+  alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.PluginDefinition
 
   describe "new/1" do
@@ -46,6 +47,37 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
 
       assert {:ok, definition} = PluginDefinition.new(attrs)
       assert definition.locales == ["en_US", "zh_Hans"]
+    end
+
+    test "accepts file_ref default provided as struct" do
+      attrs = %{
+        lang: :elixir,
+        name: "my_plugin",
+        display_name: %{"en_US" => "My Plugin"},
+        description: %{"en_US" => "My awesome plugin"},
+        icon: "🔌",
+        author: "John Doe",
+        email: "john@example.com",
+        version: "1.0.0",
+        tools: [
+          %{
+            name: "tool1",
+            parameters: [
+              %{
+                type: "file_ref",
+                name: "file",
+                default: %FileRef{source: :mem, content: "abc"}
+              }
+            ]
+          }
+        ]
+      }
+
+      assert {:ok, definition} = PluginDefinition.new(attrs)
+      [%{parameters: [%{default: default}]}] = definition.tools
+      assert default["__type__"] == "file_ref"
+      assert default["source"] == "mem"
+      assert default["content"] == "YWJj"
     end
 
     test "returns error when required fields are missing" do

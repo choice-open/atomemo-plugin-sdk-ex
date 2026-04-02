@@ -40,15 +40,19 @@ defmodule AtomemoPluginSdk.ParameterCodec.ResourceLocatorTest do
   end
 
   describe "cast_for_internal_default/2" do
-    test "accepts ResourceLocator struct" do
-      value = %ResourceLocator{mode_name: :list, value: "res_1"}
+    test "accepts encoded resource_locator payload" do
+      value = %{
+        "__type__" => "resource_locator",
+        "mode_name" => "list",
+        "value" => "res_1"
+      }
 
       assert {:ok, %ResourceLocator{}} =
                Codecable.cast_for_internal_default(%PDResourceLocator{}, value)
     end
 
-    test "rejects non-struct value" do
-      assert {:error, [%Entry{message: "must be a %ResourceLocator{} struct."}]} =
+    test "rejects non-encoded value" do
+      assert {:error, [%Entry{message: "must be an encoded resource locator payload."}]} =
                Codecable.cast_for_internal_default(%PDResourceLocator{}, "invalid")
     end
   end

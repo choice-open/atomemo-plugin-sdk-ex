@@ -3,20 +3,23 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{}, %FileRef{source: :mem} = file_ref) do
-    case FileRef.changeset(file_ref, %{}) do
+  def cast_for_internal_default(
+        %@for{},
+        %{"__type__" => "file_ref", "source" => "mem"} = file_ref
+      ) do
+    case FileRef.changeset(file_ref) do
       %{valid?: true} -> {:ok, file_ref}
       %{valid?: false} = changeset -> {:error, Entry.new(changeset)}
     end
   end
 
-  def cast_for_internal_default(%@for{}, %FileRef{source: source}) do
+  def cast_for_internal_default(%@for{}, %{"__type__" => "file_ref", "source" => source}) do
     {:error,
      Entry.new("Invalid source for file_ref: only expected a mem FileRef struct, got: #{source}")}
   end
 
   def cast_for_internal_default(%@for{}, _value) do
-    {:error, Entry.new("must be a %FileRef{} struct.")}
+    {:error, Entry.new("must be a encoded file ref json payload.")}
   end
 
   def cast(%@for{}, %{"__type__" => "file_ref"} = file_ref) do

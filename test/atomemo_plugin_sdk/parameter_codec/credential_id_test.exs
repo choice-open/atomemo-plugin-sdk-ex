@@ -35,4 +35,16 @@ defmodule AtomemoPluginSdk.ParameterCodec.CredentialIdTest do
                Codecable.cast(definition, [@valid_uuid])
     end
   end
+
+  describe "cast_for_internal_default/2" do
+    test "returns error because credential_id defaults are not supported" do
+      assert {:error, [%Entry{message: "credential_id type does not support defaults."}]} =
+               Codecable.cast_for_internal_default(%PDCredentialId{}, "anything")
+    end
+
+    test "returns error for map value without raising" do
+      assert {:error, [%Entry{message: "credential_id type does not support defaults."}]} =
+               Codecable.cast_for_internal_default(%PDCredentialId{}, %{"a" => 1})
+    end
+  end
 end

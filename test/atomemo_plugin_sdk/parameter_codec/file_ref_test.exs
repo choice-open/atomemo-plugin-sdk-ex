@@ -46,15 +46,15 @@ defmodule AtomemoPluginSdk.ParameterCodec.FileRefTest do
   end
 
   describe "cast_for_internal_default/2" do
-    test "accepts mem FileRef struct" do
-      file_ref = %FileRef{source: :mem, content: "abc"}
+    test "accepts encoded file_ref payload" do
+      file_ref = %{"__type__" => "file_ref", "source" => "mem", "content" => "YWJj"}
 
       assert {:ok, ^file_ref} =
                Codecable.cast_for_internal_default(%PDFileRef{}, file_ref)
     end
 
-    test "rejects oss FileRef struct" do
-      file_ref = %FileRef{source: :oss, res_key: "foo/bar"}
+    test "rejects encoded file_ref payload with non-mem source" do
+      file_ref = %{"__type__" => "file_ref", "source" => "oss", "res_key" => "foo/bar"}
 
       assert {:error, [%Entry{message: message}]} =
                Codecable.cast_for_internal_default(%PDFileRef{}, file_ref)
@@ -62,9 +62,17 @@ defmodule AtomemoPluginSdk.ParameterCodec.FileRefTest do
       assert message =~ "only expected a mem FileRef struct"
     end
 
-    test "rejects non-struct value" do
-      assert {:error, [%Entry{message: "must be a %FileRef{} struct."}]} =
+    test "rejects non-encoded value" do
+      assert {:error, [%Entry{message: "must be a encoded file ref json payload."}]} =
                Codecable.cast_for_internal_default(%PDFileRef{}, %{"source" => "mem"})
+    end
+
+    test "rejects struct value" do
+      assert {:error, [%Entry{message: "must be a encoded file ref json payload."}]} =
+               Codecable.cast_for_internal_default(
+                 %PDFileRef{},
+                 %FileRef{source: :mem, content: "abc"}
+               )
     end
   end
 end

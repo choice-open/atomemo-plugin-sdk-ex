@@ -3,8 +3,8 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.LLMConfig
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{}, value) do
-    {:ok, value}
+  def cast_for_internal_default(%@for{}, _value) do
+    {:error, Entry.new("llm_config type does not support defaults.")}
   end
 
   def cast(%@for{}, %{"__type__" => "llm_config"} = llm_config) do

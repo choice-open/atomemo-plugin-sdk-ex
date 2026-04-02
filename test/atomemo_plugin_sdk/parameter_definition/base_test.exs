@@ -3,7 +3,9 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
 
   import AtomemoPluginSdk.TestHelpers
 
+  alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
+  alias AtomemoPluginSdk.ParameterDefinition.FileRef, as: PDFileRef
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
 
   describe "__using__/1" do
@@ -52,6 +54,34 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
   end
 
   describe "validate_default_if_needed/1" do
+    test "normalizes struct default into encoded map for atom keys" do
+      changeset =
+        PDFileRef.changeset(%PDFileRef{}, %{
+          type: "file_ref",
+          name: "file",
+          default: %FileRef{source: :mem, content: "abc"}
+        })
+
+      assert changeset.valid?
+      assert changeset.changes.default["__type__"] == "file_ref"
+      assert changeset.changes.default["source"] == "mem"
+      assert changeset.changes.default["content"] == "YWJj"
+    end
+
+    test "normalizes struct default into encoded map for string keys" do
+      changeset =
+        PDFileRef.changeset(%PDFileRef{}, %{
+          "type" => "file_ref",
+          "name" => "file",
+          "default" => %FileRef{source: :mem, content: "abc"}
+        })
+
+      assert changeset.valid?
+      assert changeset.changes.default["__type__"] == "file_ref"
+      assert changeset.changes.default["source"] == "mem"
+      assert changeset.changes.default["content"] == "YWJj"
+    end
+
     test "skips validation when changeset is invalid" do
       changeset = PDString.changeset(%PDString{}, %{type: nil, default: "bad"})
 

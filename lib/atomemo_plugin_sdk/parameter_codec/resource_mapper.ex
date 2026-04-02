@@ -3,15 +3,8 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError.Entry
   alias AtomemoPluginSdk.ResourceMapper
 
-  def cast_for_internal_default(%@for{}, %ResourceMapper{} = value) do
-    case value |> Map.from_struct() |> ResourceMapper.new() do
-      {:ok, resource_mapper} -> {:ok, resource_mapper}
-      {:error, changeset} -> {:error, Entry.new(changeset)}
-    end
-  end
-
-  def cast_for_internal_default(%@for{}, _value) do
-    {:error, Entry.new("must be a %ResourceMapper{} struct.")}
+  def cast_for_internal_default(%@for{} = definition, value) do
+    @protocol.cast(definition, value)
   end
 
   def cast(%@for{}, %{"__type__" => "resource_mapper"} = value) do

@@ -73,6 +73,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
   end
 
   def cast_and_validate_base_fields(changeset, attrs) do
+    attrs = normalize_default_if_struct(attrs)
+
     changeset
     |> cast(attrs, [
       :decoder,
@@ -90,4 +92,14 @@ defmodule AtomemoPluginSdk.ParameterDefinition.Base do
     ])
     |> validate_required([:type])
   end
+
+  defp normalize_default_if_struct(%{"default" => default} = attrs) when is_struct(default) do
+    %{attrs | "default" => default |> JSON.encode!() |> JSON.decode!()}
+  end
+
+  defp normalize_default_if_struct(%{default: default} = attrs) when is_struct(default) do
+    %{attrs | default: default |> JSON.encode!() |> JSON.decode!()}
+  end
+
+  defp normalize_default_if_struct(attrs), do: attrs
 end

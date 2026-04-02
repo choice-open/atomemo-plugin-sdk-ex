@@ -54,8 +54,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.LLMConfigTest do
   end
 
   describe "cast_for_internal_default/2" do
-    test "returns ok for any value" do
-      assert {:ok, "anything"} = Codecable.cast_for_internal_default(%PDLLMConfig{}, "anything")
+    test "returns error because llm_config defaults are not supported" do
+      assert {:error, [%Entry{message: "llm_config type does not support defaults."}]} =
+               Codecable.cast_for_internal_default(%PDLLMConfig{}, "anything")
+    end
+
+    test "returns error for map value without raising" do
+      assert {:error, [%Entry{message: "llm_config type does not support defaults."}]} =
+               Codecable.cast_for_internal_default(%PDLLMConfig{}, %{"a" => 1})
     end
   end
 end

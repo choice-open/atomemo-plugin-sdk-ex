@@ -40,15 +40,19 @@ defmodule AtomemoPluginSdk.ParameterCodec.ResourceMapperTest do
   end
 
   describe "cast_for_internal_default/2" do
-    test "accepts ResourceMapper struct" do
-      value = %ResourceMapper{mapping_mode: :auto, value: nil}
+    test "accepts encoded resource_mapper payload" do
+      value = %{
+        "__type__" => "resource_mapper",
+        "mapping_mode" => "auto",
+        "value" => nil
+      }
 
       assert {:ok, %ResourceMapper{}} =
                Codecable.cast_for_internal_default(%PDResourceMapper{}, value)
     end
 
-    test "rejects non-struct value" do
-      assert {:error, [%Entry{message: "must be a %ResourceMapper{} struct."}]} =
+    test "rejects non-encoded value" do
+      assert {:error, [%Entry{message: "must be an encoded resource mapper payload."}]} =
                Codecable.cast_for_internal_default(%PDResourceMapper{}, "invalid")
     end
   end
