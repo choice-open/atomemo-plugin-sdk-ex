@@ -1,0 +1,38 @@
+defmodule AtomemoPluginSdk.ParameterCodec.CredentialIdTest do
+  use ExUnit.Case, async: true
+
+  alias AtomemoPluginSdk.ParameterCodec.Codecable
+  alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
+  alias AtomemoPluginSdk.ParameterError.Entry
+
+  @valid_uuid "550e8400-e29b-41d4-a716-446655440000"
+
+  describe "cast/2" do
+    test "returns ok for valid UUID" do
+      definition = %PDCredentialId{}
+
+      assert {:ok, @valid_uuid} = Codecable.cast(definition, @valid_uuid)
+    end
+
+    test "returns error for invalid UUID string" do
+      definition = %PDCredentialId{name: "cred"}
+
+      assert {:error, [%Entry{path: [], message: "must be a valid UUID"}]} =
+               Codecable.cast(definition, "not-a-uuid")
+    end
+
+    test "returns error when value is not a string" do
+      definition = %PDCredentialId{name: "cred"}
+
+      assert {:error, [%Entry{path: [], message: "must be a string representing a UUID"}]} =
+               Codecable.cast(definition, 123)
+    end
+
+    test "returns error when value is a list" do
+      definition = %PDCredentialId{name: "cred"}
+
+      assert {:error, [%Entry{message: "must be a string representing a UUID"}]} =
+               Codecable.cast(definition, [@valid_uuid])
+    end
+  end
+end

@@ -1,57 +1,10 @@
-defmodule AtomemoPluginSdk.ParameterValidator.BaseTest.AllowDefaultParameter do
-  def validate(_definition, value, _opts) do
-    if is_binary(value) do
-      {:ok, value}
-    else
-      {:error, [%{path: :default, message: "must be a string."}]}
-    end
-  end
-end
-
-defmodule AtomemoPluginSdk.ParameterValidator.BaseTest.DisallowDefaultParameter do
-  def validate(_definition, value, _opts), do: {:ok, value}
-end
-
 defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
   use ExUnit.Case, async: true
 
   import AtomemoPluginSdk.TestHelpers
 
-  defmodule AllowDefaultParameter do
-    use Ecto.Schema
-    use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: true
-
-    @primary_key false
-    embedded_schema do
-      base_schema()
-      field :type, :string
-      field :min_length, :integer
-      field :max_length, :integer
-    end
-
-    def changeset(schema, attrs) do
-      schema
-      |> cast_and_validate_base_fields(attrs)
-      |> validate_default_if_needed()
-    end
-  end
-
-  defmodule DisallowDefaultParameter do
-    use Ecto.Schema
-    use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
-
-    @primary_key false
-    embedded_schema do
-      base_schema()
-      field :type, :string
-    end
-
-    def changeset(schema, attrs) do
-      schema
-      |> cast_and_validate_base_fields(attrs)
-      |> validate_default_if_needed()
-    end
-  end
+  alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
+  alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
 
   describe "__using__/1" do
     test "raises on non-boolean allow_default option" do
@@ -76,8 +29,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
       end
     end
 
-    test "raises when corresponding validator module is missing" do
-      module_name = "MissingValidator#{System.unique_integer([:positive])}"
+    test "raises when no Codecable protocol implementation exists" do
+      module_name = "MissingCodec#{System.unique_integer([:positive])}"
 
       code = """
       defmodule AtomemoPluginSdk.ParameterDefinition.#{module_name} do
@@ -92,31 +45,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
       end
       """
 
-      assert_raise CompileError, ~r/missing corresponding validator module/, fn ->
-        Code.compile_string(code)
-      end
-    end
-
-    test "raises when corresponding validator has no validate/3" do
-      module_name = "MissingValidateMethod#{System.unique_integer([:positive])}"
-
-      code = """
-      defmodule AtomemoPluginSdk.ParameterValidator.#{module_name} do
-      end
-
-      defmodule AtomemoPluginSdk.ParameterDefinition.#{module_name} do
-        use Ecto.Schema
-        use AtomemoPluginSdk.ParameterDefinition.Base
-
-        @primary_key false
-        embedded_schema do
-          base_schema()
-          field :type, :string, default: \"string\"
-        end
-      end
-      """
-
-      assert_raise CompileError, ~r/must define validate\/3/, fn ->
+      assert_raise Protocol.UndefinedError, fn ->
         Code.compile_string(code)
       end
     end
@@ -124,7 +53,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
 
   describe "validate_default_if_needed/1" do
     test "skips validation when changeset is invalid" do
-      changeset = AllowDefaultParameter.changeset(%AllowDefaultParameter{}, %{default: "bad"})
+      changeset = PDString.changeset(%PDString{}, %{type: nil, default: "bad"})
 
       refute changeset.valid?
       assert %{type: ["can't be blank"]} = errors_on(changeset)
@@ -132,21 +61,39 @@ defmodule AtomemoPluginSdk.ParameterDefinition.BaseTest do
 
     test "skips validation when default is nil" do
       changeset =
-        DisallowDefaultParameter.changeset(%DisallowDefaultParameter{}, %{type: "credential_id"})
+        PDCredentialId.changeset(%PDCredentialId{}, %{
+          type: "credential_id",
+          credential_name: "test"
+        })
 
       assert changeset.valid?
       assert errors_on(changeset) == %{}
     end
 
-    test "adds validator error when default validation fails" do
+    test "passes validation when default is valid" do
+      changeset = PDString.changeset(%PDString{}, %{type: "string", default: "hello"})
+
+      assert changeset.valid?
+    end
+
+    test "adds error when default violates codec constraints" do
       changeset =
-        AllowDefaultParameter.changeset(%AllowDefaultParameter{}, %{
-          type: "string",
-          default: 123
+        PDString.changeset(%PDString{}, %{type: "string", min_length: 10, default: "short"})
+
+      refute changeset.valid?
+      assert %{default: [_message]} = errors_on(changeset)
+    end
+
+    test "adds error when default is not allowed for type" do
+      changeset =
+        PDCredentialId.changeset(%PDCredentialId{}, %{
+          type: "credential_id",
+          credential_name: "test",
+          default: "secret"
         })
 
       refute changeset.valid?
-      assert %{default: ["default: must be a string."]} = errors_on(changeset)
+      assert %{default: [_message]} = errors_on(changeset)
     end
   end
 end

@@ -3,150 +3,167 @@ defmodule AtomemoPluginSdk.ParameterErrorTest do
 
   alias AtomemoPluginSdk.FileRef
   alias AtomemoPluginSdk.ParameterError, as: Error
+  alias AtomemoPluginSdk.ParameterError.Entry
 
-  test "stores multiple issues" do
-    issues = [
-      %{path: ["default"], message: "must be a string."},
-      %{path: ["default", "name"], message: "too short"}
-    ]
+  describe "Entry.new/2 - string message" do
+    test "returns a list with one entry" do
+      assert [%Entry{path: [], message: "invalid"}] = Entry.new("invalid")
+    end
 
-    error = Error.new(issues, source: :plugin)
+    test "normalizes atom path into string" do
+      assert [%Entry{path: ["type"], message: "invalid"}] = Entry.new("invalid", path: :type)
+    end
 
-    assert error.source == :plugin
-    assert error.issues == issues
+    test "normalizes list path with atoms and integers" do
+      assert [%Entry{path: [0, "min"], message: "too short"}] =
+               Entry.new("too short", path: [0, :min])
+    end
+
+    test "string path is preserved" do
+      assert [%Entry{path: ["field"], message: "bad"}] = Entry.new("bad", path: "field")
+    end
+
+    test "nil path defaults to empty list" do
+      assert [%Entry{path: [], message: "fail"}] = Entry.new("fail", path: nil)
+    end
+
+    test "prepends prefix to path" do
+      assert [%Entry{path: ["items", 0, "min"], message: "too short"}] =
+               Entry.new("too short", path: [0, :min], prefix: :items)
+    end
+
+    test "prepends list prefix to path" do
+      assert [%Entry{path: ["payload", "items", 1, "type"], message: "invalid"}] =
+               Entry.new("invalid", path: [1, :type], prefix: ["payload", "items"])
+    end
   end
 
-  test "formats message with issue count" do
-    issues = [
-      %{path: [:default], message: "must be a string."},
-      %{path: [:default, "items", 0, "name"], message: "too short"}
-    ]
+  describe "Entry.new/2 - changeset" do
+    test "extracts errors from changeset" do
+      changeset = %FileRef{} |> FileRef.changeset(%{})
 
-    error = Error.new(issues, source: :plugin)
+      entries = Entry.new(changeset)
 
-    assert Exception.message(error) ==
-             "default: must be a string.\ndefault.items[0].name: too short"
+      assert [%Entry{path: ["source"], message: "can't be blank"}] = entries
+    end
+
+    test "applies prefix to changeset errors" do
+      changeset = %FileRef{} |> FileRef.changeset(%{})
+
+      entries = Entry.new(changeset, prefix: "file")
+
+      assert [%Entry{path: ["file", "source"], message: "can't be blank"}] = entries
+    end
   end
 
-  test "formats empty path" do
-    error = Error.new([%{path: [], message: "must be an object."}], source: :input)
+  describe "Entry.normalize_path/1" do
+    test "normalizes atoms to strings" do
+      assert ["foo", "bar"] = Entry.normalize_path([:foo, :bar])
+    end
 
-    assert Exception.message(error) == ": must be an object."
+    test "preserves integers" do
+      assert [0, "field"] = Entry.normalize_path([0, :field])
+    end
+
+    test "wraps scalar in list" do
+      assert ["field"] = Entry.normalize_path(:field)
+      assert [42] = Entry.normalize_path(42)
+    end
   end
 
-  test "accepts a single issue input" do
-    issue = %{path: ["default"], message: "must be a string."}
-
-    error = Error.new(issue, source: :input)
-
-    assert error.source == :input
-    assert error.issues == [issue]
-  end
-
-  test "uses explicit exception message when provided" do
-    error = Error.new("parameter validation failed", source: :input)
-
-    assert error.source == :input
-    assert error.issues == []
-    assert Exception.message(error) == "parameter validation failed"
-  end
-
-  test "builds error from changeset with prefixed path" do
-    issues = %FileRef{} |> FileRef.changeset(%{}) |> Error.issues_from_changeset()
-
-    assert [%{path: [:source], message: "can't be blank"}] = issues
-  end
-
-  describe "new/2 - prefix" do
-    test "prepends integer prefix to all issues" do
-      issues = [
-        %{path: [:type], message: "must be a string."},
-        %{path: [:min], message: "too short"}
+  describe "Error.new/1" do
+    test "stores multiple entries" do
+      entries = [
+        %Entry{path: ["default"], message: "must be a string."},
+        %Entry{path: ["default", "name"], message: "too short"}
       ]
 
-      error = Error.new(issues, source: :input, prefix: 2)
+      error = Error.new(entries)
 
-      assert [
-               %{path: [2, :type]},
-               %{path: [2, :min]}
-             ] = error.issues
+      assert error.errors == entries
     end
 
-    test "prepends atom prefix to all issues" do
-      issues = [%{path: [:type], message: "must be a string."}]
+    test "stores empty list" do
+      error = Error.new([])
 
-      error = Error.new(issues, source: :input, prefix: :items)
-
-      assert [%{path: [:items, :type]}] = error.issues
-    end
-
-    test "wraps atom path in list before prepending" do
-      issue = %{path: :type, message: "must be a string."}
-
-      error = Error.new([issue], source: :input, prefix: 0)
-
-      assert [%{path: [0, :type]}] = error.issues
-    end
-
-    test "does not modify issues when prefix is nil" do
-      issues = [%{path: [:type], message: "must be a string."}]
-
-      error = Error.new(issues, source: :input)
-
-      assert [%{path: [:type]}] = error.issues
-    end
-
-    test "does not modify issues when prefix is not provided" do
-      issues = [%{path: [:type], message: "must be a string."}]
-
-      error_with_nil = Error.new(issues, source: :input, prefix: nil)
-      error_without = Error.new(issues, source: :input)
-
-      assert error_with_nil.issues == error_without.issues
+      assert error.errors == []
     end
   end
 
-  describe "format_path/1" do
-    test "formats atom-only path" do
-      error =
-        Error.new([%{path: [:config, :timeout], message: "invalid"}], source: :input)
+  describe "Error.new/2 - prefix" do
+    test "prepends integer prefix to all entries" do
+      entries = [
+        %Entry{path: ["type"], message: "must be a string."},
+        %Entry{path: ["min"], message: "too short"}
+      ]
 
-      assert Exception.message(error) == "config.timeout: invalid"
+      error = Error.new(entries, prefix: 2)
+
+      assert [
+               %Entry{path: [2, "type"]},
+               %Entry{path: [2, "min"]}
+             ] = error.errors
     end
 
-    test "formats mixed atom and string path" do
-      error =
-        Error.new([%{path: [:default, "name"], message: "is required"}],
-          source: :plugin
-        )
+    test "prepends atom prefix to all entries" do
+      entries = [%Entry{path: ["type"], message: "must be a string."}]
 
-      assert Exception.message(error) == "default.name: is required"
+      error = Error.new(entries, prefix: :items)
+
+      assert [%Entry{path: ["items", "type"]}] = error.errors
     end
 
-    test "formats path with consecutive array indices" do
-      error =
-        Error.new([%{path: [:matrix, 0, 1], message: "out of range"}], source: :input)
+    test "prepends string prefix" do
+      entries = [%Entry{path: ["type"], message: "bad"}]
 
-      assert Exception.message(error) == "matrix[0][1]: out of range"
+      error = Error.new(entries, prefix: "field")
+
+      assert [%Entry{path: ["field", "type"]}] = error.errors
     end
 
-    test "formats path starting with array index" do
-      error = Error.new([%{path: [0, "name"], message: "is required"}], source: :input)
+    test "does not modify entries when prefix is empty list" do
+      entries = [%Entry{path: ["type"], message: "must be a string."}]
 
-      assert Exception.message(error) == "[0].name: is required"
+      error = Error.new(entries, prefix: [])
+
+      assert [%Entry{path: ["type"]}] = error.errors
     end
 
-    test "formats single-segment string path" do
-      error =
-        Error.new([%{path: ["username"], message: "too long"}], source: :plugin)
+    test "does not modify entries when prefix is not provided" do
+      entries = [%Entry{path: ["type"], message: "must be a string."}]
 
-      assert Exception.message(error) == "username: too long"
+      error = Error.new(entries)
+
+      assert [%Entry{path: ["type"]}] = error.errors
+    end
+  end
+
+  describe "message/1" do
+    test "returns JSON-encoded entries joined by newline" do
+      entries = [
+        %Entry{path: ["field"], message: "is required."},
+        %Entry{path: [0, "name"], message: "too short"}
+      ]
+
+      error = Error.new(entries)
+      message = Exception.message(error)
+
+      lines = String.split(message, "\n")
+      assert length(lines) == 2
+
+      assert {:ok, first} = JSON.decode(Enum.at(lines, 0))
+      assert first["path"] == ["field"]
+      assert first["message"] == "is required."
+
+      assert {:ok, second} = JSON.decode(Enum.at(lines, 1))
+      assert second["path"] == [0, "name"]
+      assert second["message"] == "too short"
     end
 
-    test "formats single-segment atom path" do
-      error = Error.new([%{path: [:age], message: "must be positive"}], source: :input)
+    test "returns empty string for no errors" do
+      error = Error.new([])
 
-      assert Exception.message(error) == "age: must be positive"
+      assert Exception.message(error) == ""
     end
   end
 end
