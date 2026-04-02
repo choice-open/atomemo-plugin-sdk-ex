@@ -4,11 +4,11 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{discriminator: discriminator, any_of: any_of}, value) do
+  def cast(%@for{discriminator: discriminator, any_of: any_of}, value, _opts) do
     cond do
       not is_map(value) ->
         {:error, Entry.new("must be an object.")}

@@ -196,18 +196,18 @@ defmodule AtomemoPluginSdk.ParameterCodec.ArrayTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast for valid array default" do
       definition = %PDArray{items: %PDString{min_length: 2}}
 
-      assert {:ok, ["hi", "ok"]} = Codecable.cast_for_internal_default(definition, ["hi", "ok"])
+      assert {:ok, ["hi", "ok"]} = Codecable.cast_for_default(definition, ["hi", "ok"])
     end
 
     test "returns nested item errors for invalid default" do
       definition = %PDArray{items: %PDString{min_length: 3}}
 
       assert {:error, [%Entry{path: [0], message: "should be at least 3 character(s)"}]} =
-               Codecable.cast_for_internal_default(definition, ["ab"])
+               Codecable.cast_for_default(definition, ["ab"])
     end
   end
 

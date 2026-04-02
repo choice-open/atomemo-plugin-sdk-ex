@@ -2,11 +2,23 @@ defmodule AtomemoPluginSdk.ParameterCodec do
   defprotocol Codecable do
     @spec cast(AtomemoPluginSdk.ParameterDefinition.t(), value :: any()) ::
             {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
-    def cast(definition, value)
-
-    @spec cast_for_internal_default(AtomemoPluginSdk.ParameterDefinition.t(), value :: any()) ::
+    @spec cast(
+            AtomemoPluginSdk.ParameterDefinition.t(),
+            value :: any(),
+            opts :: keyword()
+          ) ::
             {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
-    def cast_for_internal_default(definition, value)
+    def cast(definition, value, opts \\ [])
+
+    @spec cast_for_default(AtomemoPluginSdk.ParameterDefinition.t(), value :: any()) ::
+            {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
+    @spec cast_for_default(
+            AtomemoPluginSdk.ParameterDefinition.t(),
+            value :: any(),
+            opts :: keyword()
+          ) ::
+            {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
+    def cast_for_default(definition, value, opts \\ [])
   end
 
   alias AtomemoPluginSdk.ParameterError, as: Error
@@ -20,7 +32,7 @@ defmodule AtomemoPluginSdk.ParameterCodec do
 
   def validate_default(%module{name: name, default: default} = definition) do
     if module.__allow_default__() do
-      case Codecable.cast_for_internal_default(definition, default) do
+      case Codecable.cast_for_default(definition, default) do
         {:ok, _} -> :ok
         {:error, entries} -> {:error, Error.new(entries)}
       end
@@ -35,7 +47,7 @@ defmodule AtomemoPluginSdk.ParameterCodec do
   def cast(definition, value, opts \\ []) do
     with {:ok, value} <- Base.cast(definition, value),
          {:ok, value} <-
-           if(is_nil(value), do: {:ok, nil}, else: Codecable.cast(definition, value)) do
+           if(is_nil(value), do: {:ok, nil}, else: Codecable.cast(definition, value, opts)) do
       {:ok, value}
     else
       {:error, entries} ->

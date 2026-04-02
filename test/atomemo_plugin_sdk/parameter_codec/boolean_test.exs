@@ -30,14 +30,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.BooleanTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast for valid default" do
-      assert {:ok, true} = Codecable.cast_for_internal_default(%PDBoolean{}, true)
+      assert {:ok, true} = Codecable.cast_for_default(%PDBoolean{}, true)
     end
 
     test "returns error for invalid default type" do
       assert {:error, [%Entry{message: "must be a boolean."}]} =
-               Codecable.cast_for_internal_default(%PDBoolean{}, "true")
+               Codecable.cast_for_default(%PDBoolean{}, "true")
     end
   end
 end

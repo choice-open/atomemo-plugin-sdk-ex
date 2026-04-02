@@ -94,6 +94,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.NumberTest do
       definition = %PDNumber{type: "number", minimum: -5.0}
 
       assert {:ok, -5.0} = Codecable.cast(definition, -5.0)
+
       assert {:error, [%Entry{message: "should be greater than or equal to -5.0"}]} =
                Codecable.cast(definition, -5.1)
     end
@@ -102,23 +103,24 @@ defmodule AtomemoPluginSdk.ParameterCodec.NumberTest do
       definition = %PDNumber{type: "number", maximum: -1.0}
 
       assert {:ok, -1.0} = Codecable.cast(definition, -1.0)
+
       assert {:error, [%Entry{message: "should be less than or equal to -1.0"}]} =
                Codecable.cast(definition, 0.0)
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast for valid default" do
       definition = %PDNumber{type: "integer", minimum: 0}
 
-      assert {:ok, 3} = Codecable.cast_for_internal_default(definition, 3)
+      assert {:ok, 3} = Codecable.cast_for_default(definition, 3)
     end
 
     test "returns range validation errors for invalid default" do
       definition = %PDNumber{type: "integer", minimum: 0}
 
       assert {:error, [%Entry{message: "should be greater than or equal to 0"}]} =
-               Codecable.cast_for_internal_default(definition, -1)
+               Codecable.cast_for_default(definition, -1)
     end
   end
 end

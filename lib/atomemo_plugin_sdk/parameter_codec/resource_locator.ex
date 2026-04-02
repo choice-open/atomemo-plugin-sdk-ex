@@ -3,18 +3,18 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError.Entry
   alias AtomemoPluginSdk.ResourceLocator
 
-  def cast_for_internal_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{}, %{"__type__" => "resource_locator"} = value) do
+  def cast(%@for{}, %{"__type__" => "resource_locator"} = value, _opts) do
     case ResourceLocator.new(value) do
       {:ok, resource_locator} -> {:ok, resource_locator}
       {:error, changeset} -> {:error, Entry.new(changeset)}
     end
   end
 
-  def cast(%@for{}, _value) do
+  def cast(%@for{}, _value, _opts) do
     {:error, Entry.new("must be an encoded resource locator payload.")}
   end
 end
