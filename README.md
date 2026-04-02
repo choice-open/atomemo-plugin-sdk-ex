@@ -1,4 +1,4 @@
-# Choiceform Atomemo Plugin Elixir SDK
+# Atomemo Plugin Elixir SDK
 
 **TODO: Add description**
 
