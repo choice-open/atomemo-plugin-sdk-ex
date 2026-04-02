@@ -4,11 +4,15 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{properties: properties, additional_properties: additional_properties}, value)
+  def cast(
+        %@for{properties: properties, additional_properties: additional_properties},
+        value,
+        _opts
+      )
       when is_map(value) do
     property_names = Enum.map(properties, & &1.name)
     {properties_map, additional_properties_map} = Map.split(value, property_names)
@@ -20,7 +24,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     end
   end
 
-  def cast(%@for{}, _value) do
+  def cast(%@for{}, _value, _opts) do
     {:error, Entry.new("must be an object.")}
   end
 

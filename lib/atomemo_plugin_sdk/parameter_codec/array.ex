@@ -4,11 +4,11 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{max_items: max, min_items: min, items: items}, value) do
+  def cast(%@for{max_items: max, min_items: min, items: items}, value, _opts) do
     cond do
       not is_list(value) ->
         {:error, Entry.new("must be an array (list).")}

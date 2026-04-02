@@ -2,11 +2,11 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   for: AtomemoPluginSdk.ParameterDefinition.String do
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{min_length: min, max_length: max}, value) do
+  def cast(%@for{min_length: min, max_length: max}, value, _opts) do
     cond do
       not is_binary(value) ->
         {:error, Entry.new("must be a string.")}

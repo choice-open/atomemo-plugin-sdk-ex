@@ -2,11 +2,11 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   for: AtomemoPluginSdk.ParameterDefinition.Boolean do
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_default(%@for{} = definition, value) do
-    @protocol.cast(definition, value)
+  def cast_for_default(%@for{} = definition, value, opts) do
+    @protocol.cast(definition, value, opts)
   end
 
-  def cast(%@for{}, value) do
+  def cast(%@for{}, value, _opts) do
     if is_boolean(value) do
       {:ok, value}
     else
