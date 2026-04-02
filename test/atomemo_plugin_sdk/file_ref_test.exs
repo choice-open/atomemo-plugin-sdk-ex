@@ -52,7 +52,7 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert ref.size == 5
       assert ref.res_key == "res_123"
       assert ref.remote_url == "https://example.com/test.txt"
-      assert ref.content == Base.encode64("hello")
+      assert ref.content == "hello"
     end
 
     test "supports :mem source and nil content/size" do
@@ -91,11 +91,11 @@ defmodule AtomemoPluginSdk.FileRefTest do
       assert "is invalid" in errors_on(changeset).content
     end
 
-    test "validates content must be base64 when binary" do
+    test "validates content must be base64 when present" do
       attrs = Map.put(@valid_attrs, "content", "not-base64")
 
-      # changeset does not validate base64, so it passes
-      assert {:ok, %FileRef{content: "not-base64"}} = FileRef.new(attrs)
+      assert {:error, changeset} = FileRef.new(attrs)
+      assert "invalid base64 content" in errors_on(changeset).content
     end
 
     test "validates optional string fields" do
