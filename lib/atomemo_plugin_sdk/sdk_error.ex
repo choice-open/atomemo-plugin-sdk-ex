@@ -1,5 +1,7 @@
 defmodule AtomemoPluginSdk.SdkError do
-  @moduledoc false
+  @moduledoc """
+  Structured SDK error with stable error code and message.
+  """
 
   defstruct [:code, :message]
 

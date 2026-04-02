@@ -1,8 +1,12 @@
 defmodule AtomemoPluginSdk.ParameterError do
-  @moduledoc false
+  @moduledoc """
+  Exception type for parameter validation and casting failures.
+  """
 
   defmodule Entry do
-    @moduledoc false
+    @moduledoc """
+    A single validation error item with path and message.
+    """
 
     @type segment :: String.t() | non_neg_integer()
     @type path_like :: segment() | atom() | [segment() | atom()]
