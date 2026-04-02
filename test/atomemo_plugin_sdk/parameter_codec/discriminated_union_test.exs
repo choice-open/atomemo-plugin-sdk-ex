@@ -170,12 +170,12 @@ defmodule AtomemoPluginSdk.ParameterCodec.DiscriminatedUnionTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast for valid discriminated union default" do
       definition = build_definition()
 
       assert {:ok, %{"kind" => "text", "content" => "hello"}} =
-               Codecable.cast_for_internal_default(definition, %{
+               Codecable.cast_for_default(definition, %{
                  "kind" => "text",
                  "content" => "hello"
                })
@@ -185,8 +185,13 @@ defmodule AtomemoPluginSdk.ParameterCodec.DiscriminatedUnionTest do
       definition = build_definition()
 
       assert {:error,
-              [%Entry{path: ["kind"], message: "no matching definition found for discriminated union."}]} =
-               Codecable.cast_for_internal_default(definition, %{"kind" => "unknown"})
+              [
+                %Entry{
+                  path: ["kind"],
+                  message: "no matching definition found for discriminated union."
+                }
+              ]} =
+               Codecable.cast_for_default(definition, %{"kind" => "unknown"})
     end
   end
 

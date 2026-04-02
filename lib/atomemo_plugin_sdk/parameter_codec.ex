@@ -4,9 +4,9 @@ defmodule AtomemoPluginSdk.ParameterCodec do
             {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
     def cast(definition, value)
 
-    @spec cast_for_internal_default(AtomemoPluginSdk.ParameterDefinition.t(), value :: any()) ::
+    @spec cast_for_default(AtomemoPluginSdk.ParameterDefinition.t(), value :: any()) ::
             {:ok, casted_value :: any()} | {:error, [AtomemoPluginSdk.ParameterError.Entry.t()]}
-    def cast_for_internal_default(definition, value)
+    def cast_for_default(definition, value)
   end
 
   alias AtomemoPluginSdk.ParameterError, as: Error
@@ -20,7 +20,7 @@ defmodule AtomemoPluginSdk.ParameterCodec do
 
   def validate_default(%module{name: name, default: default} = definition) do
     if module.__allow_default__() do
-      case Codecable.cast_for_internal_default(definition, default) do
+      case Codecable.cast_for_default(definition, default) do
         {:ok, _} -> :ok
         {:error, entries} -> {:error, Error.new(entries)}
       end

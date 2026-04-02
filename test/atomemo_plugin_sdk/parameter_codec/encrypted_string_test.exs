@@ -25,17 +25,17 @@ defmodule AtomemoPluginSdk.ParameterCodec.EncryptedStringTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "returns error because encrypted_string defaults are not supported" do
       assert {:error,
               [%Entry{message: "encrypted_string type does not support internal defaults."}]} =
-               Codecable.cast_for_internal_default(%PDEncryptedString{}, "anything")
+               Codecable.cast_for_default(%PDEncryptedString{}, "anything")
     end
 
     test "returns error for map value without raising" do
       assert {:error,
               [%Entry{message: "encrypted_string type does not support internal defaults."}]} =
-               Codecable.cast_for_internal_default(%PDEncryptedString{}, %{"a" => 1})
+               Codecable.cast_for_default(%PDEncryptedString{}, %{"a" => 1})
     end
   end
 end

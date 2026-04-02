@@ -2,7 +2,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   for: AtomemoPluginSdk.ParameterDefinition.CredentialId do
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{}, _value) do
+  def cast_for_default(%@for{}, _value) do
     {:error, Entry.new("credential_id type does not support defaults.")}
   end
 

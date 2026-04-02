@@ -83,14 +83,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.StringTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast" do
       definition = %PDString{min_length: 3}
 
-      assert {:ok, "hello"} = Codecable.cast_for_internal_default(definition, "hello")
+      assert {:ok, "hello"} = Codecable.cast_for_default(definition, "hello")
 
       assert {:error, [%Entry{message: "should be at least 3 character(s)"}]} =
-               Codecable.cast_for_internal_default(definition, "ab")
+               Codecable.cast_for_default(definition, "ab")
     end
   end
 end

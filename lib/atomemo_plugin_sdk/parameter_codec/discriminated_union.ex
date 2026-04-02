@@ -4,7 +4,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError, as: Error
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{} = definition, value) do
+  def cast_for_default(%@for{} = definition, value) do
     @protocol.cast(definition, value)
   end
 

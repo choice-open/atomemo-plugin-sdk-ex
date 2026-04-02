@@ -216,14 +216,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.ObjectTest do
     end
   end
 
-  describe "cast_for_internal_default/2" do
+  describe "cast_for_default/2" do
     test "delegates to cast for valid object default" do
       definition = %PDObject{
         properties: [%PDString{name: "name", min_length: 2}]
       }
 
       assert {:ok, %{"name" => "Alice"}} =
-               Codecable.cast_for_internal_default(definition, %{"name" => "Alice"})
+               Codecable.cast_for_default(definition, %{"name" => "Alice"})
     end
 
     test "returns property-prefixed errors for invalid default" do
@@ -232,7 +232,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.ObjectTest do
       }
 
       assert {:error, [%Entry{path: ["name"], message: "should be at least 3 character(s)"}]} =
-               Codecable.cast_for_internal_default(definition, %{"name" => "ab"})
+               Codecable.cast_for_default(definition, %{"name" => "ab"})
     end
   end
 end

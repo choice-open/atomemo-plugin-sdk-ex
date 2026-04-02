@@ -2,7 +2,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   for: AtomemoPluginSdk.ParameterDefinition.EncryptedString do
   alias AtomemoPluginSdk.ParameterError.Entry
 
-  def cast_for_internal_default(%@for{}, _value) do
+  def cast_for_default(%@for{}, _value) do
     {:error, Entry.new("encrypted_string type does not support internal defaults.")}
   end
 
