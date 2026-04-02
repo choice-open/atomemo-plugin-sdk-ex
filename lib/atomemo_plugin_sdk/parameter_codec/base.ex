@@ -45,7 +45,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
   defp validate_enum(%{enum: nil}, _), do: :ok
   defp validate_enum(_, nil), do: :ok
 
-  defp validate_enum(%{enums: enums}, value) when is_list(enums) do
+  defp validate_enum(%{enum: enums}, value) when is_list(enums) do
     if value in enums do
       :ok
     else

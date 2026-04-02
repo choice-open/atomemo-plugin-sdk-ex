@@ -102,6 +102,32 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
 
       assert {:ok, nil} = Base.cast(definition, nil)
     end
+
+  describe "cast/2 - enum validation" do
+    test "returns ok when value is in enum list" do
+      definition = %PDString{enum: ["alpha", "beta"]}
+
+      assert {:ok, "alpha"} = Base.cast(definition, "alpha")
+    end
+
+    test "returns error when value is not in enum list" do
+      definition = %PDString{name: "field", enum: ["alpha", "beta"]}
+
+      assert {:error, [%Entry{path: [], message: "must be one of the enum values"}]} =
+               Base.cast(definition, "gamma")
+    end
+
+    test "skips enum check when enum is nil" do
+      definition = %PDString{enum: nil}
+
+      assert {:ok, "anything"} = Base.cast(definition, "anything")
+    end
+
+    test "skips enum check when value is nil" do
+      definition = %PDString{enum: ["alpha"]}
+
+      assert {:ok, nil} = Base.cast(definition, nil)
+    end
   end
 
   describe "cast/2 - validation order" do
