@@ -49,12 +49,29 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
   defp validate_constant(%{constant: nil}, _), do: :ok
   defp validate_constant(%{constant: value}, value), do: :ok
 
+  defp validate_constant(%{constant: constant}, value)
+       when is_number(constant) and is_number(value) do
+    if constant == value do
+      :ok
+    else
+      {:error, Entry.new("must be the constant value.")}
+    end
+  end
+
   defp validate_constant(_, _) do
     {:error, Entry.new("must be the constant value.")}
   end
 
   defp validate_enum(%{enum: nil}, _), do: :ok
   defp validate_enum(_, nil), do: :ok
+
+  defp validate_enum(%{enum: enums}, value) when is_list(enums) and is_number(value) do
+    if Enum.any?(enums, &(&1 == value)) do
+      :ok
+    else
+      {:error, Entry.new("must be one of the enum values")}
+    end
+  end
 
   defp validate_enum(%{enum: enums}, value) when is_list(enums) do
     if value in enums do

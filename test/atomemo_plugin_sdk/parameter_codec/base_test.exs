@@ -3,6 +3,7 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
 
   alias AtomemoPluginSdk.ParameterCodec.Base
   alias AtomemoPluginSdk.ParameterDefinition.CredentialId, as: PDCredentialId
+  alias AtomemoPluginSdk.ParameterDefinition.Number, as: PDNumber
   alias AtomemoPluginSdk.ParameterDefinition.String, as: PDString
   alias AtomemoPluginSdk.ParameterError.Entry
 
@@ -122,6 +123,12 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
       assert {:error, [%Entry{path: [], message: "must be the constant value."}]} =
                Base.cast(definition, 123)
     end
+
+    test "accepts numerically equal constant across integer and float" do
+      definition = %PDNumber{name: "field", constant: 1}
+
+      assert {:ok, 1.0} = Base.cast(definition, 1.0)
+    end
   end
 
   describe "cast/2 - enum validation" do
@@ -148,6 +155,19 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
       definition = %PDString{enum: ["alpha"]}
 
       assert {:ok, nil} = Base.cast(definition, nil)
+    end
+
+    test "accepts numerically equal enum value across integer and float" do
+      definition = %PDNumber{name: "field", enum: [1, 2, 3]}
+
+      assert {:ok, 1.0} = Base.cast(definition, 1.0)
+    end
+
+    test "returns error for numeric value outside enum" do
+      definition = %PDNumber{name: "field", enum: [1, 2, 3]}
+
+      assert {:error, [%Entry{path: [], message: "must be one of the enum values"}]} =
+               Base.cast(definition, 1.5)
     end
   end
 
