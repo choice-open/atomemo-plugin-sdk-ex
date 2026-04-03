@@ -75,6 +75,19 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
 
       assert {:ok, nil} = Base.cast(definition, nil)
     end
+
+    test "returns error when required is true, value is nil, and display is empty map" do
+      definition = %PDString{name: "field", required: true, display: %{}}
+
+      assert {:error, [%Entry{path: [], message: "is required."}]} =
+               Base.cast(definition, nil)
+    end
+
+    test "returns ok when required is true, value is nil, and display has rules" do
+      definition = %PDString{required: true, display: %{"hide" => %{}}}
+
+      assert {:ok, nil} = Base.cast(definition, nil)
+    end
   end
 
   describe "cast/2 - constant validation" do

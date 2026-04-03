@@ -28,7 +28,18 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
 
   defp take_default_if_needed(_definition, value), do: {:ok, value}
 
-  defp validate_required(%{required: true}, nil) do
+  # NOTE
+  # display 表示这个键是否存在，不止在 UI 层面，更是参数构造的逻辑之一。
+  # 但现在我们是递归验证参数的，所以无法通过解析 display 的具体规则，只能简单的通过 display 是否含有逻辑来判断。
+  # 正确的做法是通过 display 中的 hide 规则，来移除对应的键。
+  # TODO 当 hide 规则命中后，实际不该校验 required 了，因为这个键已经被隐藏了。
+  # 同时，default 也是不应该被使用的，因为这个键已经被隐藏了。
+  defp validate_required(%{display: nil, required: true}, nil) do
+    {:error, Entry.new("is required.")}
+  end
+
+  defp validate_required(%{display: display, required: true}, nil)
+       when is_map(display) and map_size(display) == 0 do
     {:error, Entry.new("is required.")}
   end
 
