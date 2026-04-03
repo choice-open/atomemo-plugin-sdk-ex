@@ -1,6 +1,6 @@
 defmodule AtomemoPluginSdk.ParameterDefinition.ResourceMapper do
   use Ecto.Schema
-  use AtomemoPluginSdk.ParameterDefinition.Base
+  use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
 
   import Ecto.Changeset
 

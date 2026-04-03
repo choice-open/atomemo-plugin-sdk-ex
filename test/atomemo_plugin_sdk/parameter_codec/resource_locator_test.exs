@@ -40,19 +40,15 @@ defmodule AtomemoPluginSdk.ParameterCodec.ResourceLocatorTest do
   end
 
   describe "cast_for_default/2" do
-    test "accepts encoded resource_locator payload" do
-      value = %{
-        "__type__" => "resource_locator",
-        "mode_name" => "list",
-        "value" => "res_1"
-      }
+    test "always rejects because resource_locator does not support defaults" do
+      assert {:error, [%Entry{message: "resource_locator type does not support defaults."}]} =
+               Codecable.cast_for_default(%PDResourceLocator{}, %{
+                 "__type__" => "resource_locator",
+                 "mode_name" => "list",
+                 "value" => "res_1"
+               })
 
-      assert {:ok, %ResourceLocator{}} =
-               Codecable.cast_for_default(%PDResourceLocator{}, value)
-    end
-
-    test "rejects non-encoded value" do
-      assert {:error, [%Entry{message: "must be an encoded resource locator payload."}]} =
+      assert {:error, [%Entry{message: "resource_locator type does not support defaults."}]} =
                Codecable.cast_for_default(%PDResourceLocator{}, "invalid")
     end
   end

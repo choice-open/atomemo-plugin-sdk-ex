@@ -90,7 +90,7 @@ end
 
 defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator do
   use Ecto.Schema
-  use AtomemoPluginSdk.ParameterDefinition.Base
+  use AtomemoPluginSdk.ParameterDefinition.Base, allow_default: false
 
   import Ecto.Changeset
   import PolymorphicEmbed
@@ -119,6 +119,7 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocator do
     |> cast_and_validate_base_fields(attrs)
     |> cast_polymorphic_embed(:modes, required: true)
     |> validate_modes_not_empty()
+    |> validate_default_if_needed()
   end
 
   defp validate_modes_not_empty(changeset) do

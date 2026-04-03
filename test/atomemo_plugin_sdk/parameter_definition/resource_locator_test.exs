@@ -26,8 +26,8 @@ defmodule AtomemoPluginSdk.ParameterDefinition.ResourceLocatorTest do
   end
 
   describe "parameters with resource_locator type" do
-    test "allows default values" do
-      assert PDResourceLocator.__allow_default__() == true
+    test "does not allow default values" do
+      assert PDResourceLocator.__allow_default__() == false
     end
 
     test "can create container with resource_locator parameter with list mode" do

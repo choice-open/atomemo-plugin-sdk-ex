@@ -3,8 +3,8 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
   alias AtomemoPluginSdk.ParameterError.Entry
   alias AtomemoPluginSdk.ResourceLocator
 
-  def cast_for_default(%@for{} = definition, value, opts) do
-    @protocol.cast(definition, value, opts)
+  def cast_for_default(%@for{}, _value, _opts) do
+    {:error, Entry.new("resource_locator type does not support defaults.")}
   end
 
   def cast(%@for{}, %{"__type__" => "resource_locator"} = value, _opts) do
