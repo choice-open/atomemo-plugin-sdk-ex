@@ -2,6 +2,8 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
   alias AtomemoPluginSdk.ParameterCodec.Decoder
   alias AtomemoPluginSdk.ParameterError.Entry
 
+  defguardp has_display_conditions(display) when is_map(display) and map_size(display) > 0
+
   def cast(%{decoder: decoder} = definition, value) do
     with {:ok, value} <- Decoder.decode_if_needed(decoder, value),
          {:ok, value} <- take_default_if_needed(definition, value),
@@ -11,6 +13,9 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
       {:ok, value}
     end
   end
+
+  defp take_default_if_needed(%{display: display}, value) when has_display_conditions(display),
+    do: {:ok, value}
 
   defp take_default_if_needed(%module{default: default} = definition, nil) do
     cond do
@@ -34,14 +39,9 @@ defmodule AtomemoPluginSdk.ParameterCodec.Base do
   # 正确的做法是通过 display 中的 hide 规则，来移除对应的键。
   # TODO 当 hide 规则命中后，实际不该校验 required 了，因为这个键已经被隐藏了。
   # 同时，default 也是不应该被使用的，因为这个键已经被隐藏了。
-  defp validate_required(%{display: nil, required: true}, nil) do
-    {:error, Entry.new("is required.")}
-  end
+  defp validate_required(%{display: display}, _) when has_display_conditions(display), do: :ok
 
-  defp validate_required(%{display: display, required: true}, nil)
-       when is_map(display) and map_size(display) == 0 do
-    {:error, Entry.new("is required.")}
-  end
+  defp validate_required(%{required: true}, nil), do: {:error, Entry.new("is required.")}
 
   defp validate_required(_, _), do: :ok
 

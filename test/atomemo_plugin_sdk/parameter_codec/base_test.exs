@@ -55,6 +55,18 @@ defmodule AtomemoPluginSdk.ParameterCodec.BaseTest do
       assert {:error, [%Entry{message: message}]} = Base.cast(definition, nil)
       assert message =~ "not allowed"
     end
+
+    test "does not apply default when value is nil and display has rules" do
+      definition = %PDString{default: "fallback", display: %{"hide" => %{}}}
+
+      assert {:ok, nil} = Base.cast(definition, nil)
+    end
+
+    test "applies default when value is nil and display is empty map" do
+      definition = %PDString{default: "fallback", display: %{}}
+
+      assert {:ok, "fallback"} = Base.cast(definition, nil)
+    end
   end
 
   describe "cast/2 - required validation" do
