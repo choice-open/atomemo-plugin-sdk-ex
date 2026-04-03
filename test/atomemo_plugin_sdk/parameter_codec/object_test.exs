@@ -27,6 +27,17 @@ defmodule AtomemoPluginSdk.ParameterCodec.ObjectTest do
   end
 
   describe "cast/2 - properties" do
+    test "handles nil properties by treating them as empty properties" do
+      definition = %PDObject{
+        properties: nil,
+        additional_properties: nil
+      }
+
+      value = %{"name" => "Alice", "age" => 18}
+
+      assert {:ok, %{"name" => "Alice", "age" => 18}} = Codecable.cast(definition, value)
+    end
+
     test "returns ok with casted properties" do
       definition = %PDObject{
         properties: [

@@ -14,6 +14,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
         opts
       )
       when is_map(value) do
+    properties = properties || []
     property_names = Enum.map(properties, & &1.name)
     {properties_map, additional_properties_map} = Map.split(value, property_names)
 
