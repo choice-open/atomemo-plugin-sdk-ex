@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## 0.1.1 - 2026-04-03
+
 ### Fixed
 
 - 因无法对 display 规则进行解析，当 display 存在规则时，不处理 default 值。
