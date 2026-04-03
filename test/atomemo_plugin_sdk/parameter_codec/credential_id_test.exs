@@ -14,24 +14,23 @@ defmodule AtomemoPluginSdk.ParameterCodec.CredentialIdTest do
       assert {:ok, @valid_uuid} = Codecable.cast(definition, @valid_uuid)
     end
 
-    test "returns error for invalid UUID string" do
+    test "returns ok for non-UUID string with default caster" do
       definition = %PDCredentialId{name: "cred"}
 
-      assert {:error, [%Entry{path: [], message: "must be a valid UUID"}]} =
-               Codecable.cast(definition, "not-a-uuid")
+      assert {:ok, "not-a-uuid"} = Codecable.cast(definition, "not-a-uuid")
     end
 
     test "returns error when value is not a string" do
       definition = %PDCredentialId{name: "cred"}
 
-      assert {:error, [%Entry{path: [], message: "must be a string representing a UUID"}]} =
+      assert {:error, [%Entry{path: [], message: "must be a string"}]} =
                Codecable.cast(definition, 123)
     end
 
     test "returns error when value is a list" do
       definition = %PDCredentialId{name: "cred"}
 
-      assert {:error, [%Entry{message: "must be a string representing a UUID"}]} =
+      assert {:error, [%Entry{message: "must be a string"}]} =
                Codecable.cast(definition, [@valid_uuid])
     end
   end
