@@ -37,9 +37,14 @@ defmodule AtomemoPluginSdk.ParameterCodec.LLMConfigTest do
       assert Enum.any?(paths, &(&1 == ["plugin_slug"] || List.last(&1) == "plugin_slug"))
     end
 
-    test "returns error when __type__ is missing" do
-      assert {:error, [%Entry{message: "must be a encoded llm config json payload"}]} =
-               Codecable.cast(%PDLLMConfig{}, %{"plugin_slug" => "test"})
+    test "returns changeset errors when __type__ is missing" do
+      assert {:error, entries} = Codecable.cast(%PDLLMConfig{}, %{"plugin_slug" => "test"})
+
+      assert is_list(entries)
+      paths = Enum.map(entries, & &1.path)
+      assert Enum.any?(paths, &(&1 == ["version_slug"] || List.last(&1) == "version_slug"))
+      assert Enum.any?(paths, &(&1 == ["model"] || List.last(&1) == "model"))
+      assert Enum.any?(paths, &(&1 == ["model_params"] || List.last(&1) == "model_params"))
     end
 
     test "returns error when value is not a map" do
@@ -47,9 +52,15 @@ defmodule AtomemoPluginSdk.ParameterCodec.LLMConfigTest do
                Codecable.cast(%PDLLMConfig{}, "not a map")
     end
 
-    test "returns error when __type__ is wrong" do
-      assert {:error, [%Entry{message: "must be a encoded llm config json payload"}]} =
-               Codecable.cast(%PDLLMConfig{}, %{"__type__" => "file_ref"})
+    test "returns changeset errors when __type__ is wrong" do
+      assert {:error, entries} = Codecable.cast(%PDLLMConfig{}, %{"__type__" => "file_ref"})
+
+      assert is_list(entries)
+      paths = Enum.map(entries, & &1.path)
+      assert Enum.any?(paths, &(&1 == ["plugin_slug"] || List.last(&1) == "plugin_slug"))
+      assert Enum.any?(paths, &(&1 == ["version_slug"] || List.last(&1) == "version_slug"))
+      assert Enum.any?(paths, &(&1 == ["model"] || List.last(&1) == "model"))
+      assert Enum.any?(paths, &(&1 == ["model_params"] || List.last(&1) == "model_params"))
     end
   end
 

@@ -7,7 +7,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     {:error, Entry.new("resource_mapper type does not support defaults.")}
   end
 
-  def cast(%@for{}, %{"__type__" => "resource_mapper"} = value, _opts) do
+  def cast(%@for{}, value, _opts) when is_map(value) do
     case ResourceMapper.new(value) do
       {:ok, resource_mapper} -> {:ok, resource_mapper}
       {:error, changeset} -> {:error, Entry.new(changeset)}

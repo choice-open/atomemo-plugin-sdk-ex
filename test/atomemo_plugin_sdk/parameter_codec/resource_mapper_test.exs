@@ -33,8 +33,8 @@ defmodule AtomemoPluginSdk.ParameterCodec.ResourceMapperTest do
       assert message == "must be an encoded resource mapper payload."
     end
 
-    test "returns error when __type__ is missing" do
-      assert {:error, [%Entry{message: "must be an encoded resource mapper payload."}]} =
+    test "casts map payload when __type__ is missing" do
+      assert {:ok, %ResourceMapper{mapping_mode: :manual, value: nil}} =
                Codecable.cast(%PDResourceMapper{}, %{"mapping_mode" => "manual"})
     end
   end

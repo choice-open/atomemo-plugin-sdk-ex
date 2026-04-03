@@ -21,13 +21,11 @@ defmodule AtomemoPluginSdk.ParameterCodec.FileRefTest do
       assert entry.message == "can't be blank"
     end
 
-    test "returns error when value lacks __type__" do
+    test "accepts map payload even when __type__ is missing" do
       payload = %{"source" => "oss", "res_key" => "bucket/a.txt"}
 
-      assert {:error, [%Entry{path: [], message: message}]} =
+      assert {:ok, %FileRef{source: :oss, res_key: "bucket/a.txt"}} =
                Codecable.cast(%PDFileRef{name: "file"}, payload)
-
-      assert message =~ "must be a encoded file ref json payload"
     end
 
     test "returns error when value is not a map" do

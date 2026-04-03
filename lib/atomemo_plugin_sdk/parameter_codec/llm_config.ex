@@ -7,7 +7,7 @@ defimpl AtomemoPluginSdk.ParameterCodec.Codecable,
     {:error, Entry.new("llm_config type does not support defaults.")}
   end
 
-  def cast(%@for{}, %{"__type__" => "llm_config"} = llm_config, _opts) do
+  def cast(%@for{}, llm_config, _opts) when is_map(llm_config) do
     case LLMConfig.new(llm_config) do
       {:ok, llm_config} -> {:ok, llm_config}
       {:error, changeset} -> {:error, Entry.new(changeset)}

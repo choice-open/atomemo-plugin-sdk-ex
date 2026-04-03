@@ -33,8 +33,8 @@ defmodule AtomemoPluginSdk.ParameterCodec.ResourceLocatorTest do
       assert message == "must be an encoded resource locator payload."
     end
 
-    test "returns error when __type__ is missing" do
-      assert {:error, [%Entry{message: "must be an encoded resource locator payload."}]} =
+    test "casts map payload when __type__ is missing" do
+      assert {:ok, %ResourceLocator{mode_name: :url, value: nil}} =
                Codecable.cast(%PDResourceLocator{}, %{"mode_name" => "url"})
     end
   end
