@@ -13,6 +13,7 @@
   - 在 `credentials` 数组里：
     - 定义 credential 的 **name / 文案 / icon**
     - 标记 `oauth2: true`
+    - 可选 **`oauth2_grant_type`**：`:authorization_code`（默认）或 `:client_credentials`
     - 定义 **parameters** 字段（包含 `client_id/client_secret/access_token/refresh_token/expires_at` 等）
     - 绑定一组回调函数：
       - `authenticate`
@@ -129,6 +130,38 @@ end
 **注意**：`expires_at` 是一个特殊的字段，Hub 会根据这个字段计划服务端的定期更新 access token 。如果没有这个字段，Hub 就不会触发自动刷新。
 
 **你要做的新 credential 定义**，基本就是在 `credentials` 里再加一条类似的 map，然后换成你自己的模块和字段名。
+
+---
+
+### 2.1 `client_credentials`（机器凭证）
+
+当第三方 API 使用 OAuth2 **client_credentials**（无用户浏览器、无授权码）时，在凭证 map 上设置：
+
+```elixir
+oauth2: true,
+oauth2_grant_type: :client_credentials,
+```
+
+- **仍使用同一个回调 `oauth2_get_token/1`**。Hub 在用户保存好 `client_id` / `client_secret`（及你在 `parameters` 里声明的 `scope`、`token_url` 等）后，会推送 `oauth2_get_token`；**通常不带 `code`**，`args.code` 为 `nil`。
+- SDK 在 `args` 里会带上 **`oauth2_grant_type`**（`:client_credentials`），可与 authorization_code 共用同一函数时在函数内分支。
+- **换 token 的 HTTP 体**使用 RFC 规定的 `grant_type: "client_credentials"`（与上面的字段名不同，注意区分）。
+- **无 refresh_token 时**：Hub 应在 token 过期后 **再次调用 `oauth2_get_token`**，而不是 `oauth2_refresh_token`。`oauth2_build_authorize_url` / `oauth2_refresh_token` 可对纯 client_credentials 凭证省略（`nil`），只要 Hub 侧不按授权码流程调用它们。
+
+示例（同一模块内分支，节选）：
+
+```elixir
+def get_token(args) when is_map(args) do
+  case args.oauth2_grant_type do
+    :client_credentials ->
+      # POST token endpoint, form: grant_type=client_credentials, client_id, client_secret, scope
+      {:ok, %{"parameters_patch" => %{"access_token" => "...", "expires_at" => ...}}}
+
+    :authorization_code ->
+      # 原有 authorization_code + code + redirect_uri 逻辑
+      ...
+  end
+end
+```
 
 ---
 

@@ -2,6 +2,10 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
   @moduledoc """
   Credential definition struct, used to describe a credential and how to
   authenticate with it.
+
+  For OAuth2 credentials (`oauth2: true`), `oauth2_grant_type` selects
+  `:authorization_code` (default) or `:client_credentials`; it is included in
+  the serialized plugin definition for Hub.
   """
 
   use Ecto.Schema
@@ -24,6 +28,11 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
     field :description, AtomemoPluginSdk.I18nEntry
     field :icon, :string
     field :oauth2, :boolean, default: false
+
+    field :oauth2_grant_type, Ecto.Enum,
+      values: [:authorization_code, :client_credentials],
+      default: :authorization_code
+
     # Non-serialized field for performing authentication / building auth_spec
     field :authenticate, :any, virtual: true
     field :oauth2_build_authorize_url, :any, virtual: true
@@ -38,6 +47,7 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
           description: AtomemoPluginSdk.I18nEntry.t() | nil,
           icon: String.t() | nil,
           oauth2: boolean(),
+          oauth2_grant_type: :authorization_code | :client_credentials,
           parameters: [AtomemoPluginSdk.ParameterDefinition.t()],
           authenticate: authenticate_fun(),
           oauth2_build_authorize_url: oauth2_callback_fun(),
@@ -56,6 +66,7 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
       :description,
       :icon,
       :oauth2,
+      :oauth2_grant_type,
       :authenticate,
       :oauth2_build_authorize_url,
       :oauth2_get_token,
