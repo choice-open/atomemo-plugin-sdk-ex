@@ -908,6 +908,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
               %{
                 name: "google_drive",
                 oauth2: true,
+                oauth2_grant_type: :authorization_code,
                 oauth2_build_authorize_url: fn %{redirect_uri: redirect_uri, state: state} ->
                   {:ok, %{"url" => "#{redirect_uri}?state=#{state}"}}
                 end,
@@ -1065,7 +1066,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
             author: "Test",
             email: "test@example.com",
             version: "1.0.0",
-            credentials: [%{name: "google_drive", oauth2: true}],
+            credentials: [
+              %{name: "google_drive", oauth2: true, oauth2_grant_type: :authorization_code}
+            ],
             tools: []
           })
         end

@@ -405,9 +405,9 @@ sequenceDiagram
 
 这些事件只会针对在 `PluginDefinition.credentials` 中声明了 `oauth2: true` 的 credential 发生。
 
-每条 credential 可在插件定义里设置 **`oauth2_grant_type`**（注册到 Hub 的 JSON 与插件定义一致）：
+对声明了 `oauth2: true` 的 credential，插件定义里 **必须** 设置 **`oauth2_grant_type`**（注册到 Hub 的 JSON 与插件定义一致）。若 `oauth2` 为 false，SDK 会丢弃 `oauth2_grant_type`，不写入定义。
 
-- **`authorization_code`**（默认）：浏览器授权码流程。Hub 依次或按需调用 `oauth2_build_authorize_url`、`oauth2_get_token`（带 `code`）、`oauth2_refresh_token`。
+- **`authorization_code`**：浏览器授权码流程。Hub 依次或按需调用 `oauth2_build_authorize_url`、`oauth2_get_token`（带 `code`）、`oauth2_refresh_token`。
 - **`client_credentials`**：机器凭证流程。Hub **不应**调用 `oauth2_build_authorize_url`；用 `client_id` / `client_secret` 等换 token 时只调用 **`oauth2_get_token`**（通常不带 `code`）。token 过期后 Hub **再次**调用 `oauth2_get_token` 重新换取，而不是 `oauth2_refresh_token`。
 
 ### 总体流程说明

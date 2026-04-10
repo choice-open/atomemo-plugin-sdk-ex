@@ -158,5 +158,55 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
         assert definition.name == valid_name
       end
     end
+
+    test "oauth2 false drops oauth2_grant_type so it is not persisted" do
+      attrs = %{
+        lang: :elixir,
+        name: "my_plugin",
+        display_name: %{"en_US" => "My Plugin"},
+        description: %{"en_US" => "My awesome plugin"},
+        icon: "🔌",
+        author: "John Doe",
+        email: "john@example.com",
+        version: "1.0.0",
+        credentials: [
+          %{
+            name: "api",
+            oauth2: false,
+            oauth2_grant_type: :authorization_code
+          }
+        ],
+        tools: []
+      }
+
+      assert {:ok, definition} = PluginDefinition.new(attrs)
+      assert [%{oauth2: false, oauth2_grant_type: nil}] = definition.credentials
+    end
+
+    test "oauth2 true requires oauth2_grant_type" do
+      attrs = %{
+        lang: :elixir,
+        name: "my_plugin",
+        display_name: %{"en_US" => "My Plugin"},
+        description: %{"en_US" => "My awesome plugin"},
+        icon: "🔌",
+        author: "John Doe",
+        email: "john@example.com",
+        version: "1.0.0",
+        credentials: [
+          %{name: "api", oauth2: true}
+        ],
+        tools: []
+      }
+
+      assert {:error, changeset} = PluginDefinition.new(attrs)
+      refute changeset.valid?
+
+      assert %{
+               credentials: [
+                 %{oauth2_grant_type: ["can't be blank"]}
+               ]
+             } = errors_on(changeset)
+    end
   end
 end

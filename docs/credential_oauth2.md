@@ -13,7 +13,7 @@
   - 在 `credentials` 数组里：
     - 定义 credential 的 **name / 文案 / icon**
     - 标记 `oauth2: true`
-    - 可选 **`oauth2_grant_type`**：`:authorization_code`（默认）或 `:client_credentials`
+    - **`oauth2_grant_type`**（在 `oauth2: true` 时必填）`:authorization_code` 或 `:client_credentials`
     - 定义 **parameters** 字段（包含 `client_id/client_secret/access_token/refresh_token/expires_at` 等）
     - 绑定一组回调函数：
       - `authenticate`
@@ -69,6 +69,7 @@ defmodule DemoPluginEx do
           description: %{"en_US" => "OAuth2 credentials for Google Drive API"},
           icon: "🗂️",
           oauth2: true,
+          oauth2_grant_type: :authorization_code,
           parameters: [
             %{
               type: "string",
@@ -117,7 +118,7 @@ end
 
 **要点：**
 
-- **`oauth2: true`**：这条 credential 按 OAuth2 流程处理。
+- **`oauth2: true`**：这条 credential 按 OAuth2 流程处理；必须同时设置 **`oauth2_grant_type`**。
 - **`parameters`**：
   - `client_id` / `client_secret`：静态配置，用户/管理员在创建 credential 时填。
   - `access_token` / `refresh_token` / `expires_at`：由 OAuth2 回调写入（`parameters_patch`），不需要用户手填。
