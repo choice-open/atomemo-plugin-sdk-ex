@@ -183,7 +183,7 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
       assert [%{oauth2: false, oauth2_grant_type: nil}] = definition.credentials
     end
 
-    test "oauth2 true requires oauth2_grant_type" do
+    test "oauth2 true defaults oauth2_grant_type to authorization_code when omitted" do
       attrs = %{
         lang: :elixir,
         name: "my_plugin",
@@ -199,14 +199,8 @@ defmodule AtomemoPluginSdk.PluginDefinitionTest do
         tools: []
       }
 
-      assert {:error, changeset} = PluginDefinition.new(attrs)
-      refute changeset.valid?
-
-      assert %{
-               credentials: [
-                 %{oauth2_grant_type: ["can't be blank"]}
-               ]
-             } = errors_on(changeset)
+      assert {:ok, definition} = PluginDefinition.new(attrs)
+      assert [%{oauth2: true, oauth2_grant_type: :authorization_code}] = definition.credentials
     end
   end
 end

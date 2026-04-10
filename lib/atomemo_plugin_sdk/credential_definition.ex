@@ -73,7 +73,10 @@ defmodule AtomemoPluginSdk.CredentialDefinition do
 
   defp validate_oauth2_grant_type(changeset) do
     if get_field(changeset, :oauth2) do
-      validate_required(changeset, [:oauth2_grant_type])
+      case get_field(changeset, :oauth2_grant_type) do
+        nil -> put_change(changeset, :oauth2_grant_type, :authorization_code)
+        _ -> changeset
+      end
     else
       delete_change(changeset, :oauth2_grant_type)
     end
