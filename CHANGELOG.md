@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+## 0.2.0 - 2026-04-10
+
+### Added
+
+- 凭证定义增加 `oauth2_grant_type`（`:authorization_code` | `:client_credentials`） 。之前的 OAuth2 凭证默认为 `authorization_code` 。
+- OAuth2 凭证增加对 `:client_credentials` 流程的支持，开发者只用实现 `oauth2_get_token` 回调。
+
 ## 0.1.1 - 2026-04-03
 
 ### Fixed
