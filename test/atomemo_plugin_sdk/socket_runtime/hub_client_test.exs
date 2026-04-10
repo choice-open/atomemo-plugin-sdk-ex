@@ -908,6 +908,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
               %{
                 name: "google_drive",
                 oauth2: true,
+                oauth2_grant_type: :authorization_code,
                 oauth2_build_authorize_url: fn %{redirect_uri: redirect_uri, state: state} ->
                   {:ok, %{"url" => "#{redirect_uri}?state=#{state}"}}
                 end,
@@ -990,6 +991,69 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
       )
     end
 
+    test "oauth2_get_token for client_credentials works without code" do
+      defmodule OAuth2ClientCredentialsPluginModule do
+        def definition do
+          PluginDefinition.new(%{
+            lang: :elixir,
+            name: "oauth2_cc_plugin",
+            display_name: %{"en_US" => "OAuth2 CC Plugin"},
+            description: %{"en_US" => "Plugin with client_credentials"},
+            icon: "🔐",
+            author: "Test",
+            email: "test@example.com",
+            version: "1.0.0",
+            credentials: [
+              %{
+                name: "m2m",
+                oauth2: true,
+                oauth2_grant_type: :client_credentials,
+                oauth2_get_token: fn args ->
+                  assert args.oauth2_grant_type == :client_credentials
+                  assert args.code == nil
+                  assert args.credential["client_id"] == "cid_1"
+                  {:ok, %{"parameters_patch" => %{"access_token" => "cc_token"}}}
+                end
+              }
+            ],
+            tools: []
+          })
+        end
+      end
+
+      client =
+        start_supervised!(
+          {HubClient,
+           [
+             plugin_module: OAuth2ClientCredentialsPluginModule,
+             test_mode?: true,
+             task_supervisor: AtomemoPluginSdk.TestTaskSupervisor
+           ]}
+        )
+
+      accept_connect(client)
+      assert_join("debug_plugin:oauth2_cc_plugin", %{}, :ok)
+
+      assert_push("debug_plugin:oauth2_cc_plugin", "register_plugin", _plugin, ref)
+      reply(client, ref, :ok)
+
+      push(client, "debug_plugin:oauth2_cc_plugin", "oauth2_get_token", %{
+        "request_id" => "oauth_cc_1",
+        "credential_name" => "m2m",
+        "credential" => %{"client_id" => "cid_1"}
+      })
+
+      assert_push(
+        "debug_plugin:oauth2_cc_plugin",
+        "oauth2_get_token_response",
+        %{
+          "request_id" => "oauth_cc_1",
+          "data" => %{"parameters_patch" => %{"access_token" => "cc_token"}}
+        },
+        _
+      )
+    end
+
     test "handles oauth2 callback errors when callback not found" do
       defmodule OAuth2NoCallbackPluginModule do
         def definition do
@@ -1002,7 +1066,9 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClientTest do
             author: "Test",
             email: "test@example.com",
             version: "1.0.0",
-            credentials: [%{name: "google_drive", oauth2: true}],
+            credentials: [
+              %{name: "google_drive", oauth2: true, oauth2_grant_type: :authorization_code}
+            ],
             tools: []
           })
         end

@@ -644,6 +644,7 @@ defmodule AtomemoPluginSdk.SocketRuntime.HubClient do
         credential: credential,
         code: message["code"],
         redirect_uri: message["redirect_uri"],
+        oauth2_grant_type: cred_def.oauth2_grant_type,
         context: context
       }
 

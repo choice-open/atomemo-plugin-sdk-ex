@@ -405,6 +405,11 @@ sequenceDiagram
 
 这些事件只会针对在 `PluginDefinition.credentials` 中声明了 `oauth2: true` 的 credential 发生。
 
+对声明了 `oauth2: true` 的 credential，插件定义里 **必须** 设置 **`oauth2_grant_type`**（注册到 Hub 的 JSON 与插件定义一致）。若 `oauth2` 为 false，SDK 会丢弃 `oauth2_grant_type`，不写入定义。
+
+- **`authorization_code`**：浏览器授权码流程。Hub 依次或按需调用 `oauth2_build_authorize_url`、`oauth2_get_token`（带 `code`）、`oauth2_refresh_token`。
+- **`client_credentials`**：机器凭证流程。Hub **不应**调用 `oauth2_build_authorize_url`；用 `client_id` / `client_secret` 等换 token 时只调用 **`oauth2_get_token`**（通常不带 `code`）。token 过期后 Hub **再次**调用 `oauth2_get_token` 重新换取，而不是 `oauth2_refresh_token`。
+
 ### 总体流程说明
 
 - Hub 在 Web 侧控制 OAuth2 流程（打开浏览器窗口、处理回调等）。
@@ -504,9 +509,13 @@ sequenceDiagram
   - `request_id`: string
   - `credential_name`: string
   - `credential`: map（当前已保存的凭证参数，可选）
-  - `code`: string（OAuth2 授权码）
-  - `redirect_uri`: string（同上，某些提供方会校验）
+  - `code`: string（**authorization_code** 流程下为 OAuth2 授权码；**client_credentials** 流程下可省略，插件侧为 `nil`）
+  - `redirect_uri`: string（可选；authorization_code 下部分提供方会校验；client_credentials 通常不需要）
   - `context`: map（可选）
+
+插件回调 **`oauth2_get_token.(args)`** 中，SDK 还会传入（不在 WebSocket payload 里单独传）：
+
+- **`oauth2_grant_type`**：`:authorization_code` | `:client_credentials`，与凭证定义中的 `oauth2_grant_type` 一致，便于在同一回调内分支实现两种换 token 方式。
 
 #### Plugin → Hub：`oauth2_get_token_response`
 
